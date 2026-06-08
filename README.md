@@ -3,9 +3,11 @@
 A corporate financial and payroll management system for running payroll, tax, HR,
 expenses, and finance operations in one visual, mobile-responsive app.
 
-> Status: **front-end complete, on realistic mock data.** Every screen, chart, and
-> drill-down is built and deploy-ready. The Supabase schema, RLS, and calculation
-> logic are wired in the next phase against the documented data contracts.
+> Status: **front-end complete, on realistic mock data, with the Supabase database
+> connected.** Every screen, chart, and drill-down is built and deploy-ready. The
+> database has its schema + baseline RLS applied and is verified live (`/api/health`).
+> The calculation engine and full data wiring come in the next phase against the
+> documented data contracts.
 
 Currency: **PKR**. Payroll cycle: **monthly**.
 
@@ -99,6 +101,29 @@ if it is ever imported into client code. This is how the key can never reach the
 
 ---
 
+## Database
+
+The Supabase database (`znzzhdgunjyzrerkffss`, region `ap-southeast-1`) is **connected
+and provisioned**:
+
+- Schema, indexes, and baseline RLS are applied via `supabase/migrations/0001_initial_schema.sql`.
+- The org structure (4 departments, 8 teams, sample employees) is seeded.
+- RLS is enabled on every table. Org structure is readable by authenticated users;
+  sensitive tables are service-role-only until per-role policies are added (logic phase).
+
+Verify the live connection any time:
+
+```bash
+curl http://localhost:3000/api/health
+# -> { "status": "ok", "database": "connected", "departments": 4 }
+```
+
+Re-apply or extend migrations (reads `.env.local`, routes via the IPv4 pooler):
+
+```bash
+npm run db:migrate
+```
+
 ## Project structure
 
 ```
@@ -160,5 +185,7 @@ signatures are the contract your Supabase layer fulfils. See **`docs/BACKEND_WIR
   not persist yet. Saving is wired to Supabase in the logic phase.
 - The tax figure uses a clearly-labelled placeholder slab model
   (`mockWithholdingTax` in `src/lib/data/engine.ts`). Replace with real FBR slabs.
-- The role switcher previews UI gating only; server-side RLS is the real access control
-  and is built in the next phase.
+- The role switcher previews UI gating only. Baseline RLS is enabled on every table;
+  the granular per-role policies (dept_head scoping, employee self-only) come next phase.
+- The app UI still reads the mock dataset. The database is connected and seeded, but
+  swapping the selectors in `src/lib/data` to read from Supabase is the logic phase.

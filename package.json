@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node scripts/apply-migration.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
@@ -25,6 +26,7 @@
     "@types/node": "^25.9.1",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
+    "pg": "^8.21.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3"
   }

@@ -50,6 +50,19 @@ In the import screen (or Project → Settings → Environment Variables), add th
 Click **Deploy**. Vercel installs, builds, and serves the app. Every push to `main`
 triggers a production deploy; pull requests get preview deployments automatically.
 
+## Step 4.5 — Verify the database connection
+
+The database (`znzzhdgunjyzrerkffss`, region `ap-southeast-1`) is already provisioned:
+schema, baseline RLS, and the org seed are applied (`supabase/migrations/0001_initial_schema.sql`).
+After the deploy finishes, confirm the live connection:
+
+```
+curl https://<your-app>.vercel.app/api/health
+# -> { "status": "ok", "database": "connected", "departments": 4 }
+```
+
+If it returns `disconnected`, the `SUPABASE_*` env vars are missing or wrong in Vercel.
+
 ## Step 5 — Custom domain (optional)
 
 Project → Settings → Domains → add your domain and follow the DNS instructions.
