@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { UserMinus } from "lucide-react";
 import type { Employee } from "@/lib/data";
 import {
   DEPARTMENTS,
+  EXIT_REASON_LABEL,
   TEAMS,
   departmentById,
   getEmployeePayroll,
   getIncrements,
+  getSettlement,
   teamsForDepartment,
 } from "@/lib/data";
 import { formatMonthKey } from "@/lib/format";
@@ -20,7 +23,13 @@ import { BreakdownRow } from "@/components/ui/sheet";
 import { Sparkline, CHART } from "@/components/charts";
 import { PayrollBreakdownBody } from "@/components/payroll/payroll-breakdown";
 
-export function EmployeeProfileBody({ employee }: { employee: Employee }) {
+export function EmployeeProfileBody({
+  employee,
+  onMarkAsLeft,
+}: {
+  employee: Employee;
+  onMarkAsLeft?: (employee: Employee) => void;
+}) {
   const dept = departmentById.get(employee.departmentId);
   const team = TEAMS.find((t) => t.id === employee.teamId);
   const history = getEmployeePayroll(employee.id);
@@ -28,6 +37,7 @@ export function EmployeeProfileBody({ employee }: { employee: Employee }) {
   const incs = getIncrements({ employeeId: employee.id });
   const baseGross = employee.salary.basic + employee.salary.medical + employee.salary.travel;
   const spark = history.map((h) => ({ label: h.month, value: h.net }));
+  const settlement = employee.leftOn ? getSettlement(employee.id) : undefined;
 
   return (
     <div className="space-y-6">
@@ -104,6 +114,50 @@ export function EmployeeProfileBody({ employee }: { employee: Employee }) {
             Latest payslip · {formatMonthKey(latest.month)}
           </p>
           <PayrollBreakdownBody record={latest} employee={employee} departmentName={dept?.name} />
+        </div>
+      ) : null}
+
+      {employee.leftOn ? (
+        <div className="rounded-xl border border-border bg-surface-muted/50 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-foreground">Departed</p>
+            {settlement ? <StatusBadge status={settlement.status} /> : null}
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+                Last working day
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-foreground">{employee.leftOn}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-subtle">Reason</p>
+              <p className="mt-0.5 text-sm font-medium text-foreground">
+                {EXIT_REASON_LABEL[employee.exitReason ?? "other"]}
+              </p>
+            </div>
+          </div>
+          {employee.exitNote ? (
+            <p className="mt-2 text-xs text-muted">{employee.exitNote}</p>
+          ) : null}
+          {settlement ? (
+            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+              <span className="text-sm text-muted">Net final dues</span>
+              <span className="text-sm font-semibold text-brand-700">
+                <Money value={settlement.net} />
+              </span>
+            </div>
+          ) : null}
+          <p className="mt-2 text-xs text-subtle">
+            See the Offboarding tab for the full final settlement.
+          </p>
+        </div>
+      ) : onMarkAsLeft ? (
+        <div className="border-t border-border pt-4">
+          <Button variant="outline" className="w-full" onClick={() => onMarkAsLeft(employee)}>
+            <UserMinus className="h-4 w-4" />
+            Mark as left
+          </Button>
         </div>
       ) : null}
     </div>

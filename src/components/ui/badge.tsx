@@ -44,6 +44,8 @@ const STATUS_TONE: Record<string, Tone> = {
   draft: "warning",
   active: "positive",
   inactive: "neutral",
+  pending: "warning",
+  cleared: "positive",
   done: "positive",
   in_progress: "info",
   todo: "neutral",

@@ -12,6 +12,20 @@ export type Role = "admin" | "hr" | "dept_head" | "employee";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "medium" | "high";
 
+/** Why an employee left. Drives the final-settlement rules (e.g. notice shortfall). */
+export type ExitReason = "resigned" | "terminated" | "contract_end" | "retired" | "other";
+
+/** Whether the final dues have been paid out. */
+export type SettlementStatus = "pending" | "cleared";
+
+export const EXIT_REASON_LABEL: Record<ExitReason, string> = {
+  resigned: "Resigned",
+  terminated: "Terminated",
+  contract_end: "End of contract",
+  retired: "Retired",
+  other: "Other",
+};
+
 export interface Department {
   id: string;
   key: DepartmentKey;
@@ -47,6 +61,37 @@ export interface Employee {
   status: EmployeeStatus;
   joinedOn: string; // ISO date
   salary: SalaryStructure; // current structure
+
+  // --- offboarding (present only once an employee has left) ---
+  leftOn?: string; // ISO date — last working day
+  exitReason?: ExitReason;
+  exitNote?: string;
+}
+
+/** One line of a final settlement — an earning or a deduction. */
+export interface SettlementLine {
+  label: string;
+  amount: number;
+  note?: string;
+}
+
+/**
+ * Full-and-final settlement ("dues") for a departed employee. Earnings minus
+ * deductions give the net payable. Figures are derived from the salary
+ * structure + tenure so a recomputation always reconciles.
+ */
+export interface FinalSettlement {
+  employeeId: string;
+  leftOn: string;
+  exitReason: ExitReason;
+  tenureMonths: number;
+  completedYears: number;
+  earnings: SettlementLine[];
+  deductions: SettlementLine[];
+  grossEarnings: number;
+  totalDeductions: number;
+  net: number;
+  status: SettlementStatus;
 }
 
 /** Sales commission: one headline total composed of three tracked parts. */

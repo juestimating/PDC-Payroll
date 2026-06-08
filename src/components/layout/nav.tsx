@@ -8,6 +8,7 @@ import {
   Timer,
   TrendingDown,
   TrendingUp,
+  UserMinus,
   Users,
   Wallet,
 } from "lucide-react";
@@ -30,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "deductions", label: "Deductions", href: "/deductions", icon: TrendingDown, section: "Payroll" },
   { key: "tax", label: "Tax", href: "/tax", icon: Landmark, section: "Payroll" },
   { key: "employees", label: "Employees", href: "/employees", icon: Users, section: "People" },
+  { key: "offboarding", label: "Offboarding", href: "/offboarding", icon: UserMinus, section: "People" },
   { key: "expenses", label: "Expenses", href: "/expenses", icon: CreditCard, section: "Finance" },
   { key: "reports", label: "Reports", href: "/reports", icon: BarChart3, section: "Finance" },
   { key: "tasks", label: "Tasks", href: "/tasks", icon: ListChecks, section: "Workspace" },

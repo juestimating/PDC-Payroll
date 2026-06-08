@@ -1,14 +1,30 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ChevronDown, Menu, Search } from "lucide-react";
 import { useAppState } from "@/components/providers/app-state";
-import { MONTHS, ROLES, ROLE_ORDER } from "@/lib/data";
+import { useWorkspace } from "@/components/providers/workspace";
+import { CURRENT_MONTH, ROLES, ROLE_ORDER } from "@/lib/data";
 import type { Role } from "@/lib/data";
 import { formatMonthKey } from "@/lib/format";
 import { Avatar } from "@/components/ui/avatar";
+import { PeriodControl } from "@/components/payroll/period-control";
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const { month, setMonth, role, setRole, user } = useAppState();
+  const { months, openMonth, isCreated, ready } = useWorkspace();
+
+  // Once hydrated, default the view to the open month if the user hasn't moved off
+  // the seed default — so a month opened in a previous session is shown on load.
+  const synced = useRef(false);
+  useEffect(() => {
+    if (ready && !synced.current) {
+      synced.current = true;
+      if (month === CURRENT_MONTH && openMonth !== CURRENT_MONTH) setMonth(openMonth);
+    }
+  }, [ready, openMonth, month, setMonth]);
+
+  const canManagePeriod = role === "admin" || role === "hr";
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-surface/85 px-4 backdrop-blur sm:px-6 lg:px-8">
@@ -30,6 +46,12 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        {canManagePeriod ? (
+          <div className="hidden sm:block">
+            <PeriodControl compact />
+          </div>
+        ) : null}
+
         <label className="hidden items-center gap-2 sm:flex">
           <span className="text-xs text-subtle">Month</span>
           <div className="relative">
@@ -38,9 +60,10 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
               onChange={(e) => setMonth(e.target.value)}
               className="h-9 appearance-none rounded-lg border border-border bg-surface pl-3 pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             >
-              {[...MONTHS].reverse().map((m) => (
+              {[...months].reverse().map((m) => (
                 <option key={m} value={m}>
                   {formatMonthKey(m)}
+                  {m === openMonth ? " · open" : isCreated(m) ? " · new" : ""}
                 </option>
               ))}
             </select>

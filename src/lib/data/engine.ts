@@ -6,15 +6,20 @@
 // The tax function here is a clearly-labelled PLACEHOLDER. Replace with real
 // FBR withholding slabs in the logic phase.
 // =============================================================================
+import { formatMonthKey } from "../format";
 import { EMPLOYEES, departmentById } from "./org";
 import type {
   CommissionBreakdown,
   DeductionItem,
   Employee,
+  ExitReason,
+  FinalSettlement,
   IncrementEvent,
   OvertimeDetail,
   PayrollRecord,
   PayrollStatus,
+  SettlementLine,
+  SettlementStatus,
 } from "./types";
 
 /** Latest (open) month. Everything before it is a closed, immutable month. */
@@ -46,6 +51,24 @@ export function monthIndex(month: string): number {
 export function previousMonth(month: string): string | null {
   const i = monthIndex(month);
   return i > 0 ? MONTHS[i - 1] : null;
+}
+
+/** Compare two "YYYY-MM" keys: <0, 0, >0. Works for months outside the window. */
+export function monthCompare(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** The month immediately after a "YYYY-MM" key, e.g. "2026-12" -> "2027-01". */
+export function monthAfter(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return m >= 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+}
+
+/** Whole months between two ISO dates (clamped at 0). */
+export function monthsBetween(fromISO: string, toISO: string): number {
+  const [ay, am] = fromISO.slice(0, 7).split("-").map(Number);
+  const [by, bm] = toISO.slice(0, 7).split("-").map(Number);
+  return Math.max(0, (by - ay) * 12 + (bm - am));
 }
 
 // ---- deterministic randomness ------------------------------------------------
@@ -192,9 +215,15 @@ function statusFor(month: string): PayrollStatus {
 function buildPayroll(): PayrollRecord[] {
   const records: PayrollRecord[] = [];
   for (const emp of EMPLOYEES) {
-    if (emp.status !== "active") continue;
+    const leftMonth = emp.leftOn ? emp.leftOn.slice(0, 7) : null;
+    // Active employees, plus departed ones (so their history through their
+    // final month is preserved). Legacy inactive-without-leftOn are skipped.
+    if (emp.status !== "active" && !leftMonth) continue;
+    const joinMonth = emp.joinedOn.slice(0, 7);
     const dept = departmentById.get(emp.departmentId);
     for (const month of MONTHS) {
+      if (monthCompare(month, joinMonth) < 0) continue; // before they joined
+      if (leftMonth && monthCompare(month, leftMonth) > 0) continue; // after they left
       const basic = basicForMonth(emp, month);
       const medical = emp.salary.medical;
       const travel = emp.salary.travel;
@@ -249,3 +278,122 @@ for (const r of PAYROLL) {
 }
 
 export { commissionTotal };
+
+// =============================================================================
+// Final settlement ("dues") for departed employees.
+// Earnings (salary payable + leave encashment + gratuity + pending dues) minus
+// deductions (advances/loans, short-notice) give the net payable. The amounts
+// are a clearly-labelled MOCK derived from the salary structure and tenure —
+// swap for your real settlement policy in the logic phase.
+// =============================================================================
+const sumLines = (lines: SettlementLine[]): number => lines.reduce((s, l) => s + l.amount, 0);
+
+export function computeSettlement(emp: Employee): FinalSettlement {
+  const leftOn = emp.leftOn ?? `${CURRENT_MONTH}-28`;
+  const exitReason: ExitReason = emp.exitReason ?? "other";
+  const rng = rngFor("settle", emp.id);
+  const { basic, medical, travel } = emp.salary;
+  const baseGross = basic + medical + travel;
+  const dailyBasic = basic / 30;
+
+  const tenureMonths = monthsBetween(emp.joinedOn, leftOn);
+  const completedYears = Math.floor(tenureMonths / 12);
+  const dept = departmentById.get(emp.departmentId);
+
+  // ---- earnings ----
+  const earnings: SettlementLine[] = [
+    {
+      label: "Salary payable (final month)",
+      amount: Math.round(baseGross),
+      note: formatMonthKey(leftOn.slice(0, 7)),
+    },
+  ];
+
+  const unusedLeave = Math.round(between(rng, 2, 18));
+  earnings.push({
+    label: "Leave encashment",
+    amount: Math.round(unusedLeave * dailyBasic),
+    note: `${unusedLeave} days unused`,
+  });
+
+  if (completedYears >= 1) {
+    earnings.push({
+      label: "Gratuity / severance",
+      amount: completedYears * basic,
+      note: `${completedYears} yr${completedYears > 1 ? "s" : ""} of service`,
+    });
+  }
+
+  if (dept?.isSales && rng() > 0.4) {
+    earnings.push({ label: "Pending commission", amount: roundTo(between(rng, 15000, 80000), 1000) });
+  } else if (dept?.isTechnical && rng() > 0.4) {
+    earnings.push({ label: "Pending overtime", amount: roundTo(between(rng, 8000, 40000), 1000) });
+  }
+
+  // ---- deductions ----
+  const deductions: SettlementLine[] = [];
+  if (rng() > 0.55) {
+    deductions.push({
+      label: "Advance / loan recovery",
+      amount: roundTo(between(rng, 10000, 60000), 1000),
+      note: "Outstanding balance",
+    });
+  }
+  if (exitReason === "resigned" && rng() > 0.6) {
+    deductions.push({
+      label: "Short-notice adjustment",
+      amount: roundTo(basic / 2, 1000),
+      note: "Notice period shortfall",
+    });
+  }
+
+  const grossEarnings = sumLines(earnings);
+  const totalDeductions = sumLines(deductions);
+
+  // Recent departures are still being processed; older ones are cleared.
+  const status: SettlementStatus = monthsBetween(leftOn, `${CURRENT_MONTH}-28`) <= 1 ? "pending" : "cleared";
+
+  return {
+    employeeId: emp.id,
+    leftOn,
+    exitReason,
+    tenureMonths,
+    completedYears,
+    earnings,
+    deductions,
+    grossEarnings,
+    totalDeductions,
+    net: grossEarnings - totalDeductions,
+    status,
+  };
+}
+
+// =============================================================================
+// New-month generation. Opening a month carries each employee's salary
+// structure forward with variable components (commission / overtime /
+// deductions) reset to zero — they are entered during the month.
+// =============================================================================
+export function generateMonthForRoster(month: string, roster: Employee[]): PayrollRecord[] {
+  return roster.map((emp) => {
+    const { basic, medical, travel } = emp.salary;
+    const gross = basic + medical + travel;
+    const taxable = gross - medical; // mock: medical treated as exempt
+    const withholdingTax = mockWithholdingTax(taxable);
+    return {
+      id: `pay-${emp.id}-${month}`,
+      employeeId: emp.id,
+      month,
+      status: "processing" as PayrollStatus,
+      basic,
+      medical,
+      travel,
+      commission: undefined,
+      overtime: undefined,
+      deductions: [],
+      gross,
+      taxable,
+      withholdingTax,
+      net: gross - withholdingTax,
+    };
+  });
+}

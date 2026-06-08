@@ -32,8 +32,15 @@ Currency: **PKR**. Payroll cycle: **monthly**.
   department comparison, salary composition, recent activity. Every figure drills down.
 - **Payroll main sheet** — dense per-employee table; tap any row for the full salary
   breakdown (basic, allowances, commission, overtime, tax, deductions, net).
+- **Start new month** — close the open period and open the next from the top bar.
+  Salaries carry forward, variable items reset, the prior month locks. The roll-over is
+  persisted (see Workspace overlay below).
 - **Employees** — list, conditional add/edit form (commission fields for Sales,
-  overtime for technical teams), rich profile with history.
+  overtime for technical teams), rich profile with history. Active people can be marked
+  as left from their profile.
+- **Offboarding** — departed employees with their **final settlement** (salary payable,
+  leave encashment, gratuity, pending dues − advances/recoveries), settlement status, and
+  outstanding totals. Mark anyone as left and reinstate UI offboardings.
 - **Overtime / Increments / Deductions** — the salary-adjustment modules, month-aware,
   feeding the main sheet.
 - **Tax** — salary with vs without tax, per-employee detail, department totals.
@@ -183,8 +190,14 @@ signatures are the contract your Supabase layer fulfils. See **`docs/BACKEND_WIR
 
 - Forms (add employee, log overtime, increments, deductions, tasks) are UI-only; they do
   not persist yet. Saving is wired to Supabase in the logic phase.
+- **Workspace overlay** — two actions _do_ persist, in the browser: **Start new month**
+  and **offboarding** (mark-as-left). They write to a client overlay (`src/lib/data/overlay.ts`,
+  localStorage key `pdc-workspace-v1`) layered over the deterministic seed. An empty overlay
+  renders identically to the seed, so it's the clean precursor to the logic phase, where the
+  same actions become audited Supabase writes (period close + employee status + settlement).
 - The tax figure uses a clearly-labelled placeholder slab model
-  (`mockWithholdingTax` in `src/lib/data/engine.ts`). Replace with real FBR slabs.
+  (`mockWithholdingTax` in `src/lib/data/engine.ts`). Replace with real FBR slabs. The
+  **final-settlement** figures (`computeSettlement`) are illustrative on the same basis.
 - The role switcher previews UI gating only. Baseline RLS is enabled on every table;
   the granular per-role policies (dept_head scoping, employee self-only) come next phase.
 - The app UI still reads the mock dataset. The database is connected and seeded, but

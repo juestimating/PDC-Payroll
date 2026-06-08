@@ -82,21 +82,55 @@ const ROWS: Row[] = [
   ["emp-028", "Shahbaz Gul", "dept-admin", "admin", "team-admin-accounts", "Admin Officer", "active", "2023-01-30", 72000, 7000, 9000],
   ["emp-029", "Mehwish Iftikhar", "dept-admin", "admin", "team-admin-hr", "Office Manager", "active", "2021-06-16", 105000, 10000, 13000],
   ["emp-030", "Asad Mahmood", "dept-admin", "admin", "team-admin-hr", "HR Executive", "active", "2022-11-11", 90000, 9000, 12000],
+
+  // --- Departed (kept on record for history + final settlement) ---
+  ["emp-031", "Rizwan Haider", "dept-estimation", "estimation", "team-est-civil", "Estimator", "inactive", "2021-05-10", 108000, 10000, 13000],
+  ["emp-032", "Mahnoor Siddiqui", "dept-design", "design", "team-design-viz", "3D Artist", "inactive", "2022-09-01", 96000, 9000, 12000],
 ];
 
+/**
+ * Employees who have left. Keyed by id; sets the leaving date and reason used by
+ * the offboarding view and the final-settlement calculator. Their payroll
+ * history is preserved up to (and including) their leaving month.
+ */
+export const SEED_DEPARTURES: Record<
+  string,
+  { leftOn: string; exitReason: Employee["exitReason"]; exitNote?: string }
+> = {
+  "emp-008": {
+    leftOn: "2026-02-19",
+    exitReason: "resigned",
+    exitNote: "Moved to a competitor. Notice period served in full.",
+  },
+  "emp-031": {
+    leftOn: "2026-04-30",
+    exitReason: "contract_end",
+    exitNote: "Fixed-term project contract completed.",
+  },
+  "emp-032": {
+    leftOn: "2026-05-23",
+    exitReason: "resigned",
+    exitNote: "Relocating abroad. Final dues under processing.",
+  },
+};
+
 export const EMPLOYEES: Employee[] = ROWS.map(
-  ([id, name, departmentId, departmentKey, teamId, designation, status, joinedOn, basic, medical, travel]) => ({
-    id,
-    name,
-    email: `${name.toLowerCase().replace(/[^a-z]+/g, ".")}@pdc.com.pk`,
-    departmentId,
-    departmentKey,
-    teamId,
-    designation,
-    status,
-    joinedOn,
-    salary: { basic, medical, travel },
-  }),
+  ([id, name, departmentId, departmentKey, teamId, designation, status, joinedOn, basic, medical, travel]) => {
+    const exit = SEED_DEPARTURES[id];
+    return {
+      id,
+      name,
+      email: `${name.toLowerCase().replace(/[^a-z]+/g, ".")}@pdc.com.pk`,
+      departmentId,
+      departmentKey,
+      teamId,
+      designation,
+      status,
+      joinedOn,
+      salary: { basic, medical, travel },
+      ...(exit ? { leftOn: exit.leftOn, exitReason: exit.exitReason, exitNote: exit.exitNote } : {}),
+    };
+  },
 );
 
 // ---- lookups -----------------------------------------------------------------

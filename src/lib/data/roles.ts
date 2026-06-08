@@ -44,11 +44,11 @@ export const ROLE_ORDER: Role[] = ["admin", "hr", "dept_head", "employee"];
 /** Module keys each role can reach (drives sidebar + route guards in the UI). */
 export const ROLE_NAV: Record<Role, string[]> = {
   admin: [
-    "dashboard", "payroll", "employees", "overtime", "increments",
+    "dashboard", "payroll", "employees", "offboarding", "overtime", "increments",
     "deductions", "tax", "expenses", "tasks", "reports",
   ],
   hr: [
-    "dashboard", "payroll", "employees", "overtime", "increments",
+    "dashboard", "payroll", "employees", "offboarding", "overtime", "increments",
     "deductions", "tax", "tasks", "reports",
   ],
   dept_head: ["dashboard", "payroll", "employees", "overtime", "expenses", "tasks", "reports"],

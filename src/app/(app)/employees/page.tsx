@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { Building2, Search, UserPlus, Users } from "lucide-react";
 import {
   DEPARTMENTS,
-  EMPLOYEES,
   TEAMS,
   departmentById,
   getEmployees,
@@ -13,6 +12,7 @@ import {
 } from "@/lib/data";
 import type { Employee } from "@/lib/data";
 import { formatNumber } from "@/lib/format";
+import { useWorkspace } from "@/components/providers/workspace";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -25,6 +25,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/states";
 import { Sheet } from "@/components/ui/sheet";
 import { EmployeeForm, EmployeeProfileBody } from "@/components/employees/employee-detail";
+import { OffboardForm } from "@/components/offboarding/settlement";
 
 export default function EmployeesPage() {
   const [search, setSearch] = useState("");
@@ -35,6 +36,10 @@ export default function EmployeesPage() {
   const [profile, setProfile] = useState<Employee | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [formEmployee, setFormEmployee] = useState<Employee | null>(null);
+  const [offboardEmployee, setOffboardEmployee] = useState<Employee | null>(null);
+
+  // Re-render when the workspace changes (e.g. someone is marked as left).
+  const { version } = useWorkspace();
 
   const teamOptions = dept === "all" ? TEAMS : teamsForDepartment(dept);
 
@@ -46,10 +51,12 @@ export default function EmployeesPage() {
   });
 
   const stats = useMemo(() => {
-    const active = EMPLOYEES.filter((e) => e.status === "active");
+    const all = getEmployees();
+    const active = all.filter((e) => e.status === "active");
     const avgBasic = active.reduce((s, e) => s + e.salary.basic, 0) / (active.length || 1);
-    return { active: active.length, total: EMPLOYEES.length, avgBasic };
-  }, []);
+    return { active: active.length, total: all.length, avgBasic };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version]);
 
   function openAdd() {
     setFormEmployee(null);
@@ -239,7 +246,15 @@ export default function EmployeesPage() {
           ) : null
         }
       >
-        {profile ? <EmployeeProfileBody employee={profile} /> : null}
+        {profile ? (
+          <EmployeeProfileBody
+            employee={profile}
+            onMarkAsLeft={(emp) => {
+              setProfile(null);
+              setOffboardEmployee(emp);
+            }}
+          />
+        ) : null}
       </Sheet>
 
       {/* Add / Edit */}
@@ -251,6 +266,22 @@ export default function EmployeesPage() {
         width={560}
       >
         <EmployeeForm employee={formEmployee} onClose={() => setFormOpen(false)} />
+      </Sheet>
+
+      {/* Offboard */}
+      <Sheet
+        open={!!offboardEmployee}
+        onClose={() => setOffboardEmployee(null)}
+        title="Offboard employee"
+        subtitle={offboardEmployee?.name ?? ""}
+        width={560}
+      >
+        {offboardEmployee ? (
+          <OffboardForm
+            presetEmployeeId={offboardEmployee.id}
+            onClose={() => setOffboardEmployee(null)}
+          />
+        ) : null}
       </Sheet>
     </>
   );

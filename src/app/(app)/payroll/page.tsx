@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import { Lock, Plus, Search } from "lucide-react";
 import { useAppState } from "@/components/providers/app-state";
 import {
-  CURRENT_MONTH,
   DEPARTMENTS,
   commissionTotal,
   departmentById,
+  getOpenMonth,
   getPayroll,
 } from "@/lib/data";
 import type { PayrollRow, PayrollStatus } from "@/lib/data";
@@ -58,7 +58,7 @@ export default function PayrollPage() {
     [rows],
   );
 
-  const closed = month !== CURRENT_MONTH;
+  const closed = month !== getOpenMonth();
 
   const columns: Column<PayrollRow>[] = [
     {

@@ -16,13 +16,19 @@ import {
   CURRENT_MONTH,
   INCREMENTS,
   MONTHS,
-  PAYROLL,
   commissionTotal,
-  monthIndex,
+  computeSettlement,
   payrollByEmployee,
-  payrollByMonth,
-  previousMonth,
 } from "./engine";
+import {
+  allMonthKeys,
+  createdRecordsForEmployee,
+  effectiveEmployee,
+  effectiveOpenMonth,
+  isMonthCreated,
+  orderIndex,
+  recordsForMonth,
+} from "./overlay";
 import { EXPENSES, expensesByMonth } from "./expenses";
 import { TASKS } from "./tasks";
 import { DEMO_USERS, DEMO_USER_BY_ROLE } from "./users";
@@ -30,12 +36,20 @@ import { ROLE_NAV, ROLE_ORDER, ROLES } from "./roles";
 import type {
   DepartmentKey,
   Employee,
+  ExitReason,
+  FinalSettlement,
   ExpenseItem,
   IncrementEvent,
   PayrollRecord,
   PayrollStatus,
   TaskItem,
 } from "./types";
+
+/** Overlay-aware previous month (spans created months too). */
+function prevMonth(month: string): string | null {
+  const i = orderIndex(month);
+  return i > 0 ? allMonthKeys()[i - 1] : null;
+}
 
 // ---- re-exports --------------------------------------------------------------
 export * from "./types";
@@ -48,7 +62,19 @@ export {
   employeeById,
   teamById,
 } from "./org";
-export { MONTHS, CURRENT_MONTH, INCREMENTS } from "./engine";
+export { MONTHS, CURRENT_MONTH, INCREMENTS, computeSettlement, monthAfter } from "./engine";
+
+// ---- months / open period (overlay-aware) -----------------------------------
+/** All selectable months, including any opened via "Start new month". */
+export function getMonths(): string[] {
+  return allMonthKeys();
+}
+/** The current open / processing month. */
+export function getOpenMonth(): string {
+  return effectiveOpenMonth();
+}
+/** Whether a month was opened on top of the seed window. */
+export { isMonthCreated };
 export { ROLES, ROLE_NAV, ROLE_ORDER } from "./roles";
 export { DEMO_USERS, DEMO_USER_BY_ROLE } from "./users";
 
@@ -72,7 +98,7 @@ function enrich(r: PayrollRecord): PayrollRow {
 }
 
 export function getPayroll(month: string, q: PayrollQuery = {}): PayrollRow[] {
-  let rows = (payrollByMonth.get(month) ?? []).map(enrich);
+  let rows = recordsForMonth(month).map(enrich);
   if (q.departmentId) rows = rows.filter((r) => r.employee.departmentId === q.departmentId);
   if (q.teamId) rows = rows.filter((r) => r.employee.teamId === q.teamId);
   if (q.status) rows = rows.filter((r) => r.status === q.status);
@@ -88,13 +114,21 @@ export function getPayroll(month: string, q: PayrollQuery = {}): PayrollRow[] {
 }
 
 export function getEmployeePayroll(employeeId: string): PayrollRecord[] {
-  return [...(payrollByEmployee.get(employeeId) ?? [])].sort(
-    (a, b) => monthIndex(a.month) - monthIndex(b.month),
+  const open = effectiveOpenMonth();
+  const base = (payrollByEmployee.get(employeeId) ?? []).map((r) =>
+    r.month === open || r.status === "closed" ? r : { ...r, status: "closed" as PayrollStatus },
+  );
+  return [...base, ...createdRecordsForEmployee(employeeId)].sort(
+    (a, b) => orderIndex(a.month) - orderIndex(b.month),
   );
 }
 
 export function getPayrollRecord(employeeId: string, month: string): PayrollRecord | undefined {
-  return (payrollByEmployee.get(employeeId) ?? []).find((r) => r.month === month);
+  const created = createdRecordsForEmployee(employeeId).find((r) => r.month === month);
+  if (created) return created;
+  const base = (payrollByEmployee.get(employeeId) ?? []).find((r) => r.month === month);
+  if (!base) return undefined;
+  return base.month === effectiveOpenMonth() ? base : { ...base, status: "closed" as PayrollStatus };
 }
 
 export { commissionTotal };
@@ -121,7 +155,7 @@ export interface OrgTotals {
 }
 
 export function orgTotals(month: string): OrgTotals {
-  const rows = payrollByMonth.get(month) ?? [];
+  const rows = recordsForMonth(month);
   const expenses = sum(expensesByMonth.get(month) ?? [], (e) => e.amount);
   const gross = sum(rows, (r) => r.gross);
   return {
@@ -160,7 +194,7 @@ export interface DeptTotals {
 }
 
 export function departmentTotals(month: string): DeptTotals[] {
-  const rows = payrollByMonth.get(month) ?? [];
+  const rows = recordsForMonth(month);
   const exp = expensesByMonth.get(month) ?? [];
   return DEPARTMENTS.map((d) => {
     const dr = rows.filter((r) => employeeById.get(r.employeeId)?.departmentId === d.id);
@@ -200,7 +234,7 @@ export interface TrendPoint {
 }
 
 export function monthlyTrend(): TrendPoint[] {
-  return MONTHS.map((m) => {
+  return allMonthKeys().map((m) => {
     const t = orgTotals(m);
     return {
       month: m,
@@ -238,7 +272,7 @@ export interface DashboardKpis {
 
 export function dashboardKpis(month: string): DashboardKpis {
   const cur = orgTotals(month);
-  const prevKey = previousMonth(month);
+  const prevKey = prevMonth(month);
   const prev = prevKey ? orgTotals(prevKey) : null;
   return {
     payrollCost: kpi(cur.payrollCost, prev?.payrollCost ?? null),
@@ -286,7 +320,7 @@ export function taxTotals(month: string): TaxTotals {
   const dts = departmentTotals(month);
   const gross = sum(dts, (d) => d.gross);
   const tax = sum(dts, (d) => d.tax);
-  const taxable = sum(payrollByMonth.get(month) ?? [], (r) => r.taxable);
+  const taxable = sum(recordsForMonth(month), (r) => r.taxable);
   return {
     gross,
     taxable,
@@ -346,7 +380,10 @@ export function expenseTotals(month: string): ExpenseTotals {
 }
 
 export function expenseTrend(): { month: string; total: number }[] {
-  return MONTHS.map((m) => ({ month: m, total: sum(expensesByMonth.get(m) ?? [], (e) => e.amount) }));
+  return allMonthKeys().map((m) => ({
+    month: m,
+    total: sum(expensesByMonth.get(m) ?? [], (e) => e.amount),
+  }));
 }
 
 // =============================================================================
@@ -360,7 +397,7 @@ export interface EmployeeQuery {
 }
 
 export function getEmployees(q: EmployeeQuery = {}): Employee[] {
-  let list = [...EMPLOYEES];
+  let list = EMPLOYEES.map(effectiveEmployee);
   if (q.departmentId) list = list.filter((e) => e.departmentId === q.departmentId);
   if (q.teamId) list = list.filter((e) => e.teamId === q.teamId);
   if (q.status) list = list.filter((e) => e.status === q.status);
@@ -374,7 +411,8 @@ export function getEmployees(q: EmployeeQuery = {}): Employee[] {
 }
 
 export function getEmployee(id: string): Employee | undefined {
-  return employeeById.get(id);
+  const e = employeeById.get(id);
+  return e ? effectiveEmployee(e) : undefined;
 }
 
 export function teamsForDepartment(departmentId: string) {
@@ -452,4 +490,62 @@ export function getTasks(
   return list
     .map((t) => ({ ...t, assignee: t.assigneeId ? employeeById.get(t.assigneeId) : undefined }))
     .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1));
+}
+
+// =============================================================================
+// Offboarding — departed employees + their final settlement ("dues")
+// =============================================================================
+export interface DepartedEmployee extends Employee {
+  leftOn: string;
+  exitReason: ExitReason;
+  settlement: FinalSettlement;
+}
+
+/** Everyone who has left: seed departures + anyone offboarded via the UI. */
+function departedRoster(): Employee[] {
+  const map = new Map<string, Employee>();
+  for (const e of EMPLOYEES) {
+    const eff = effectiveEmployee(e);
+    if (eff.leftOn) map.set(eff.id, eff);
+  }
+  return [...map.values()];
+}
+
+export function getDepartedEmployees(): DepartedEmployee[] {
+  return departedRoster()
+    .map((e) => ({
+      ...e,
+      leftOn: e.leftOn as string,
+      exitReason: e.exitReason ?? "other",
+      settlement: computeSettlement(e),
+    }))
+    .sort((a, b) => (a.leftOn < b.leftOn ? 1 : -1));
+}
+
+export function getSettlement(employeeId: string): FinalSettlement | undefined {
+  const e = departedRoster().find((x) => x.id === employeeId);
+  return e ? computeSettlement(e) : undefined;
+}
+
+export interface OffboardingSummary {
+  count: number;
+  pending: number;
+  cleared: number;
+  netDue: number; // net of all settlements
+  pendingDue: number; // net of settlements still pending
+  thisYear: number; // departures in the open year
+}
+
+export function offboardingSummary(): OffboardingSummary {
+  const list = getDepartedEmployees();
+  const pending = list.filter((d) => d.settlement.status === "pending");
+  const year = effectiveOpenMonth().slice(0, 4);
+  return {
+    count: list.length,
+    pending: pending.length,
+    cleared: list.length - pending.length,
+    netDue: list.reduce((s, d) => s + d.settlement.net, 0),
+    pendingDue: pending.reduce((s, d) => s + d.settlement.net, 0),
+    thisYear: list.filter((d) => d.leftOn.slice(0, 4) === year).length,
+  };
 }
