@@ -59,6 +59,12 @@ export function PayrollBreakdownBody({
       </div>
 
       <Section title="Earnings">
+        {record.days < 30 ? (
+          <p className="mb-1.5 text-xs text-muted">
+            Prorated for {record.days} / 30 days · full month{" "}
+            <Money value={record.contractGross} />
+          </p>
+        ) : null}
         <BreakdownRow label="Basic salary" value={<Money value={record.basic} />} />
         <BreakdownRow label="Medical allowance" value={<Money value={record.medical} />} />
         <BreakdownRow label="Travel allowance" value={<Money value={record.travel} />} />
@@ -126,6 +132,26 @@ export function PayrollBreakdownBody({
           </p>
         </div>
       </div>
+
+      {employee.bank || employee.account || employee.accountTitle || employee.cnic || employee.city ? (
+        <Section title="Bank transfer details">
+          {employee.bank ? <BreakdownRow label="Bank" value={employee.bank} /> : null}
+          {employee.account ? (
+            <BreakdownRow label="Account number" value={<span className="tabular-nums">{employee.account}</span>} />
+          ) : null}
+          {employee.accountTitle ? <BreakdownRow label="Account title" value={employee.accountTitle} /> : null}
+          {employee.cnic ? (
+            <BreakdownRow label="CNIC" value={<span className="tabular-nums">{employee.cnic}</span>} />
+          ) : null}
+          {employee.city ? <BreakdownRow label="City" value={employee.city} /> : null}
+        </Section>
+      ) : null}
+
+      {employee.note ? (
+        <div className="rounded-lg border-l-2 border-brand-400 bg-surface-muted/60 px-3 py-2 text-xs text-muted">
+          Note: {employee.note}
+        </div>
+      ) : null}
 
       <p className="text-xs text-subtle">
         Recomputed from components equals the stored net · {formatMonthKeyLong(record.month)}.
