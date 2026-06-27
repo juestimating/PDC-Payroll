@@ -5,7 +5,7 @@ import { CreditCard, Repeat } from "lucide-react";
 import { useAppState } from "@/components/providers/app-state";
 import { DEPARTMENTS, departmentById, expenseTotals, expenseTrend, getExpenses } from "@/lib/data";
 import type { ExpenseItem } from "@/lib/data";
-import { formatMonthKeyLong, formatMonthShort } from "@/lib/format";
+import { formatMonthKeyLong, formatMonthShort, formatPKRMillions } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -154,7 +154,7 @@ export default function ExpensesPage() {
         <Card>
           <CardHeader title="By department" subtitle="Click to drill in" />
           <CardBody>
-            <Donut data={donut} centerValue={pkrCr(tot.total)} centerLabel="Total" />
+            <Donut data={donut} centerValue={formatPKRMillions(tot.total)} centerLabel="Total" />
             <div className="mt-3 space-y-1">
               {tot.byDepartment.map((d) => (
                 <button
@@ -230,6 +230,3 @@ function DeptExpenseDetail({ month, departmentId }: { month: string; departmentI
   );
 }
 
-function pkrCr(n: number): string {
-  return `${(n / 1_00_00_000).toFixed(2)}Cr`;
-}

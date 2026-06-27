@@ -1,6 +1,6 @@
 // =============================================================================
 // Currency + number + date formatting for PDC Payroll.
-// Currency: PKR. Display symbol "Rs". Compact uses South-Asian K / L / Cr.
+// Currency: PKR. Display symbol "Rs". Compact uses K / M / B (millions).
 // =============================================================================
 
 export const CURRENCY_SYMBOL = "Rs";
@@ -21,17 +21,24 @@ export function formatPKR(
   return symbol ? `${CURRENCY_SYMBOL} ${n}` : n;
 }
 
-/** Compact South-Asian amount: "Rs 1.2Cr", "Rs 12.3L", "Rs 85K", "Rs 850". */
+/** Compact amount in millions: "Rs 1.2B", "Rs 12.3M", "Rs 85K", "Rs 850". */
 export function formatPKRCompact(value: number, opts?: { symbol?: boolean }): string {
   const { symbol = true } = opts ?? {};
   const abs = Math.abs(value);
   const sign = value < 0 ? "-" : "";
   let out: string;
-  if (abs >= 1_00_00_000) out = `${trimOne(abs / 1_00_00_000)}Cr`;
-  else if (abs >= 1_00_000) out = `${trimOne(abs / 1_00_000)}L`;
+  if (abs >= 1_000_000_000) out = `${trimOne(abs / 1_000_000_000)}B`;
+  else if (abs >= 1_000_000) out = `${trimOne(abs / 1_000_000)}M`;
   else if (abs >= 1_000) out = `${trimOne(abs / 1_000)}K`;
   else out = `${Math.round(abs)}`;
   const body = `${sign}${out}`;
+  return symbol ? `${CURRENCY_SYMBOL} ${body}` : body;
+}
+
+/** Amount in millions with fixed decimals, e.g. formatPKRMillions(2866930) -> "2.87M". */
+export function formatPKRMillions(value: number, opts?: { symbol?: boolean; decimals?: number }): string {
+  const { symbol = false, decimals = 2 } = opts ?? {};
+  const body = `${(value / 1_000_000).toFixed(decimals)}M`;
   return symbol ? `${CURRENCY_SYMBOL} ${body}` : body;
 }
 

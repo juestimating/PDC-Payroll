@@ -103,6 +103,8 @@ export function isMonthCreated(month: string): boolean {
 }
 
 function withStatus(r: PayrollRecord, open: string): PayrollRecord {
+  // Terminal statuses (a paid/closed run) are real history — never downgrade.
+  if (r.status === "paid" || r.status === "closed") return r;
   const status: PayrollStatus = r.month === open ? "processing" : "closed";
   return r.status === status ? r : { ...r, status };
 }

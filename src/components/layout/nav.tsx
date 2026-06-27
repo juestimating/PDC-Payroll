@@ -1,4 +1,5 @@
 import {
+  BadgePercent,
   BarChart3,
   CreditCard,
   FileText,
@@ -27,6 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "my-payslip", label: "My Payslip", href: "/my-payslip", icon: FileText, section: "Overview" },
   { key: "payroll", label: "Payroll", href: "/payroll", icon: Wallet, section: "Payroll" },
   { key: "overtime", label: "Overtime", href: "/overtime", icon: Timer, section: "Payroll" },
+  { key: "commissions", label: "Commissions", href: "/commissions", icon: BadgePercent, section: "Payroll" },
   { key: "increments", label: "Increments", href: "/increments", icon: TrendingUp, section: "Payroll" },
   { key: "deductions", label: "Deductions", href: "/deductions", icon: TrendingDown, section: "Payroll" },
   { key: "tax", label: "Tax", href: "/tax", icon: Landmark, section: "Payroll" },

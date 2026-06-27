@@ -59,8 +59,18 @@ export interface Employee {
   teamId: string;
   designation: string;
   status: EmployeeStatus;
+  /** New hires still inside their probation window (status stays "active"). */
+  onProbation?: boolean;
   joinedOn: string; // ISO date
-  salary: SalaryStructure; // current structure
+  salary: SalaryStructure; // current (full-month) structure
+
+  // --- payroll / disbursement details (real payroll grade) ---
+  bank?: string; // disbursing bank
+  account?: string; // account number / IBAN
+  accountTitle?: string; // account holder name (may differ from employee)
+  cnic?: string; // national ID (PII)
+  city?: string;
+  note?: string; // free-form payroll note (e.g. "8 days salary")
 
   // --- offboarding (present only once an employee has left) ---
   leftOn?: string; // ISO date — last working day
@@ -121,19 +131,25 @@ export interface PayrollRecord {
   month: string; // YYYY-MM
   status: PayrollStatus;
 
-  // --- components (the source of truth) ---
+  // --- proration (real payroll: partial months are paid pro-rata) ---
+  days: number; // days worked this month (out of 30)
+  contractGross: number; // full-month salary; WHT is always computed on this
+
+  // --- salary components (prorated by days; source of the headline gross) ---
   basic: number;
   medical: number;
   travel: number;
-  commission?: CommissionBreakdown; // sales only
-  overtime?: OvertimeDetail; // technical only
   deductions: DeductionItem[];
 
-  // --- derived headline figures (reconcile from the components above) ---
-  gross: number;
-  taxable: number;
-  withholdingTax: number;
-  net: number;
+  // --- separate payouts: NOT part of gross/taxable/WHT (paid on top of salary) ---
+  commission?: CommissionBreakdown; // sales only
+  overtime?: OvertimeDetail; // technical (estimation) only
+
+  // --- derived headline figures (salary only) ---
+  gross: number; // = basic + medical + travel (prorated)
+  taxable: number; // = gross - medical
+  withholdingTax: number; // FBR slabs on full contract gross, prorated by days
+  net: number; // = gross - withholdingTax - deductions
 }
 
 export interface IncrementEvent {

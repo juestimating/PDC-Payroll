@@ -1,6 +1,9 @@
 // =============================================================================
-// Static org structure: 4 fixed departments, teams, and the employee roster
-// with current salary structures. Numbers are monthly PKR.
+// Static org structure + REAL employee roster (42, April 2026). Numbers are
+// monthly PKR. Salary components are decomposed from the full-month contract
+// gross: medical = gross/110*10 (tax-exempt), travel = 10%, basic = remainder
+// (absorbs the 65% basic + 15% HRA of the payslip). They sum to contract gross.
+// Generated from the production dataset — edit the source, not by hand.
 // =============================================================================
 import type { Department, Employee, Team } from "./types";
 
@@ -22,116 +25,58 @@ export const TEAMS: Team[] = [
   { id: "team-admin-accounts", name: "Accounts & Admin", departmentId: "dept-admin" },
 ];
 
-/** Department head employee per department (used by the dept_head RBAC demo). */
+/** Department head employee per department (highest contract gross). */
 export const DEPARTMENT_HEADS: Record<string, string> = {
   "dept-sales": "emp-001",
-  "dept-estimation": "emp-009",
-  "dept-design": "emp-017",
-  "dept-admin": "emp-023",
+  "dept-estimation": "emp-016",
+  "dept-design": "emp-031",
+  "dept-admin": "emp-036",
 };
 
-type Row = [
-  id: string,
-  name: string,
-  departmentId: string,
-  departmentKey: Employee["departmentKey"],
-  teamId: string,
-  designation: string,
-  status: Employee["status"],
-  joinedOn: string,
-  basic: number,
-  medical: number,
-  travel: number,
+export const EMPLOYEES: Employee[] = [
+  { id: "emp-001", name: "Muhammad Yahya", email: "muhammad.yahya@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Marketing Manager", status: "active", joinedOn: "2024-01-01", salary: { basic: 105181.82, medical: 11818.18, travel: 13000 }, bank: "Bank Alfalah", account: "04251008741041", accountTitle: "Muhammad Yahya", cnic: "32302-7476715-5", city: "Lahore", },
+  { id: "emp-002", name: "Syed Muhammad Aqib Gilani", email: "syed.muhammad.aqib.gilani@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-inside", designation: "Outbound Calling Agent", status: "active", joinedOn: "2024-03-01", salary: { basic: 64727.27, medical: 7272.73, travel: 8000 }, bank: "UBL", account: "2212333871025", accountTitle: "Syeda Azmat Ara", cnic: "35202-1680530-3", city: "Lahore", },
+  { id: "emp-003", name: "Laraib Naeem", email: "laraib.naeem@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-inside", designation: "Outbound Calling Agent", status: "active", joinedOn: "2024-04-01", salary: { basic: 48545.45, medical: 5454.55, travel: 6000 }, bank: "HBL", account: "06367900665799", accountTitle: "Laraib Naeem", cnic: "36601-9043008-2", city: "Vehari", },
+  { id: "emp-004", name: "Abdul Rehman", email: "abdul.rehman@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-inside", designation: "Outbound Calling Agent", status: "active", joinedOn: "2024-02-01", salary: { basic: 60681.82, medical: 6818.18, travel: 7500 }, bank: "UBL", account: "0205327017048", accountTitle: "Abdul Rehman", cnic: "33101-2919761-3", city: "Lahore", },
+  { id: "emp-005", name: "Abdul Rauf", email: "abdul.rauf@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-inside", designation: "Outbound Calling Agent", status: "active", joinedOn: "2024-01-15", salary: { basic: 89000, medical: 10000, travel: 11000 }, bank: "Meezan", account: "PK29MEZN0002490106719217", accountTitle: "Abdur Rauf", cnic: "45206-8219211-5", city: "Lahore", },
+  { id: "emp-006", name: "Muhammad Nabeel", email: "muhammad.nabeel@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Lead Marketing Executive", status: "active", joinedOn: "2023-11-01", salary: { basic: 57371.83, medical: 6446.27, travel: 7090.9 }, bank: "Bank Alfalah", account: "55025001903936", accountTitle: "Muhammad Nabeel Rashid", cnic: "35103-9607981-1", city: "Lahore", },
+  { id: "emp-007", name: "Ammar Bashir", email: "ammar.bashir@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Marketing Executive", status: "active", joinedOn: "2024-05-01", salary: { basic: 48545.45, medical: 5454.55, travel: 6000 }, bank: "UBL", account: "0496293611356", accountTitle: "Ammar Bashir", cnic: "35202-4662861-7", city: "Lahore", },
+  { id: "emp-008", name: "Muhammad Hasnain", email: "muhammad.hasnain@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Marketing Executive", status: "active", joinedOn: "2024-06-01", salary: { basic: 40454.55, medical: 4545.45, travel: 5000 }, bank: "Jazz Cash", account: "03242482738", accountTitle: "Muhammad Hussnain", city: "Lahore", },
+  { id: "emp-009", name: "Muhammad Bilal", email: "muhammad.bilal@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Marketing Executive", status: "active", joinedOn: "2024-04-01", salary: { basic: 48545.45, medical: 5454.55, travel: 6000 }, bank: "Bank Alfalah", account: "55025001938279", accountTitle: "Muhammad Bilal", cnic: "35301-3660418-7", city: "Lahore", note: "5000 Returned", },
+  { id: "emp-010", name: "Zain Ali", email: "zain.ali@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Marketing Executive", status: "active", joinedOn: "2024-03-15", salary: { basic: 48545.45, medical: 5454.55, travel: 6000 }, bank: "Bank Alfalah", account: "55025001903942", accountTitle: "Zain Ali", cnic: "35202-7794813-7", city: "Lahore", },
+  { id: "emp-011", name: "Ayesha Khan", email: "ayesha.khan@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Marketing Executive", status: "active", joinedOn: "2024-07-01", salary: { basic: 32930, medical: 3700, travel: 4070 }, bank: "NBP", account: "PK03NBPA0446004253095786", accountTitle: "Ayesha Khan", city: "Lahore", },
+  { id: "emp-012", name: "Maryam Muneer", email: "maryam.muneer@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Marketing Executive (On-site)", status: "active", joinedOn: "2024-08-01", salary: { basic: 32930, medical: 3700, travel: 4070 }, bank: "Bank Alfalah", account: "55025002495368", accountTitle: "Mariam Muneer", city: "Lahore", },
+  { id: "emp-013", name: "Maryam Malik", email: "maryam.malik@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Marketing Executive (Remote)", status: "active", joinedOn: "2024-05-15", salary: { basic: 49445.16, medical: 5555.64, travel: 6111.2 }, bank: "Bank Alfalah", account: "55025001935028", accountTitle: "Maryam Asghar", city: "Lahore", note: "Incentive in Salary", },
+  { id: "emp-014", name: "Muskan", email: "muskan@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Social Media / CM", status: "active", joinedOn: "2024-09-01", salary: { basic: 28318.18, medical: 3181.82, travel: 3500 }, bank: "Bank Alfalah", account: "55025002422581", accountTitle: "Muskan", city: "Lahore", },
+  { id: "emp-015", name: "Mubeen Ali Hashmi", email: "mubeen.ali.hashmi@pdc.com.pk", departmentId: "dept-sales", departmentKey: "sales", teamId: "team-sales-field", designation: "Video Editor", status: "active", joinedOn: "2024-02-01", salary: { basic: 48545.45, medical: 5454.55, travel: 6000 }, bank: "Nayapay", account: "03027870303", accountTitle: "Mubeen Azam", cnic: "35201-8447487-5", city: "Lahore", },
+  { id: "emp-016", name: "Awais Munir", email: "awais.munir@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Senior Estimator", status: "active", joinedOn: "2022-06-01", salary: { basic: 178000, medical: 20000, travel: 22000 }, bank: "Bank Alfalah", account: "PK14ALFH5502005001930092", accountTitle: "Awais Muneer", cnic: "82702-0340237-1", city: "Kashmir", },
+  { id: "emp-017", name: "Asad Awan", email: "asad.awan@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Team Lead", status: "active", joinedOn: "2022-09-01", salary: { basic: 121363.64, medical: 13636.36, travel: 15000 }, bank: "Bank Alfalah", account: "PK82ALFH5502005001930129", accountTitle: "Asad Awan", cnic: "82202-5894945-3", city: "Kashmir", },
+  { id: "emp-018", name: "Muhammad Uzaer Khan", email: "muhammad.uzaer.khan@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Associate Estimator", status: "active", joinedOn: "2023-03-01", salary: { basic: 82527.27, medical: 9272.73, travel: 10200 }, bank: "Bank Alfalah", account: "55025002490591", accountTitle: "Muhammad Uzair Khan", cnic: "33302-4467089-3", city: "Toba Tek Singh", },
+  { id: "emp-019", name: "Rafia", email: "rafia@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Team Lead", status: "active", joinedOn: "2023-01-01", salary: { basic: 84954.55, medical: 9545.45, travel: 10500 }, bank: "Bank Alfalah", account: "56045001814717", accountTitle: "Rafia", cnic: "35202-1013061-6", city: "Lahore", },
+  { id: "emp-020", name: "Zain Ali", email: "zain.ali2@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Estimator", status: "active", joinedOn: "2023-06-01", salary: { basic: 101136.36, medical: 11363.64, travel: 12500 }, bank: "Askari Bank", account: "1050320233008", accountTitle: "Zain Ali", cnic: "35403-8932975-5", city: "Lahore", },
+  { id: "emp-021", name: "Mohsin Iqbal", email: "mohsin.iqbal@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Junior Estimator", status: "active", joinedOn: "2023-08-01", salary: { basic: 60681.82, medical: 6818.18, travel: 7500 }, bank: "Allied Bank", account: "02570010076074780014", accountTitle: "Mohsin Iqbal", cnic: "13503-0951000-3", city: "Lahore", },
+  { id: "emp-022", name: "Mahnoor Habib", email: "mahnoor.habib@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Junior Estimator", status: "active", joinedOn: "2023-10-01", salary: { basic: 52510, medical: 5900, travel: 6490 }, bank: "Meezan Bank", account: "28020103890699", accountTitle: "Mahnoor Habib", cnic: "35404-2097086-2", city: "Lahore", },
+  { id: "emp-023", name: "Raazia Babar", email: "raazia.babar@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Junior Estimator", status: "active", joinedOn: "2024-01-01", salary: { basic: 52510, medical: 5900, travel: 6490 }, bank: "HBL", account: "54637000083599", accountTitle: "Raazia Babar", cnic: "35201-8601084-0", city: "Lahore", note: "Clearance Pending", },
+  { id: "emp-024", name: "Firdoos Saleem", email: "firdoos.saleem@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Junior Estimator", status: "active", joinedOn: "2023-09-01", salary: { basic: 56636.36, medical: 6363.64, travel: 7000 }, bank: "Soneri Bank", account: "PK70SONE0043020016143497", accountTitle: "Firdoos Saleem", cnic: "35102-5774182-4", city: "Lahore", },
+  { id: "emp-025", name: "Touqeer Ahmad", email: "touqeer.ahmad@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Estimator", status: "active", joinedOn: "2023-11-01", salary: { basic: 48545.45, medical: 5454.55, travel: 6000 }, bank: "Bank Alfalah", account: "PK59ALFH5893005001839019", accountTitle: "Touqeer Ahmad", city: "Lahore", },
+  { id: "emp-026", name: "Umar Rashid", email: "umar.rashid@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Associate Estimator", status: "active", joinedOn: "2023-07-01", salary: { basic: 60681.82, medical: 6818.18, travel: 7500 }, bank: "HBL", account: "11437903101103", accountTitle: "Umar", cnic: "82102-4949348-5", city: "Kashmir", },
+  { id: "emp-027", name: "Shehroz", email: "shehroz@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Associate Estimator", status: "active", joinedOn: "2024-01-01", salary: { basic: 40454.55, medical: 4545.45, travel: 5000 }, bank: "Bank Al Habib", account: "PK22BAHL0058007800764050", accountTitle: "Shehroz Ahmed", city: "Lahore", },
+  { id: "emp-028", name: "Haiqa Ashfaq", email: "haiqa.ashfaq@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Junior Estimator", status: "active", joinedOn: "2024-02-15", salary: { basic: 44500, medical: 5000, travel: 5500 }, bank: "National Bank", account: "PK92NBPA1730004243906552", accountTitle: "Haiqa Ashfaq", city: "Lahore", },
+  { id: "emp-029", name: "Arfa Farrukh", email: "arfa.farrukh@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Junior Estimator", status: "active", joinedOn: "2024-03-01", salary: { basic: 48545.45, medical: 5454.55, travel: 6000 }, bank: "HBL", account: "59617000022899", accountTitle: "Arfa Nisa", cnic: "35202-4443689-4", city: "Lahore", },
+  { id: "emp-030", name: "Muneeb ur Rehman", email: "muneeb.ur.rehman@pdc.com.pk", departmentId: "dept-estimation", departmentKey: "estimation", teamId: "team-est-civil", designation: "Junior Estimator", status: "active", joinedOn: "2024-04-15", salary: { basic: 48545.45, medical: 5454.55, travel: 6000 }, bank: "Allied Bank", account: "7310010094325470", accountTitle: "Muneeb Ur Rehman", cnic: "36502-2649521-1", city: "Lahore", },
+  { id: "emp-031", name: "Nataliya Tahir", email: "nataliya.tahir@pdc.com.pk", departmentId: "dept-design", departmentKey: "design", teamId: "team-design-arch", designation: "Lead Architect", status: "active", joinedOn: "2023-02-01", salary: { basic: 89000, medical: 10000, travel: 11000 }, bank: "Bank Alfalah", account: "55025002439612", accountTitle: "Nataliya Tahir", cnic: "35202-3156517-0", city: "Lahore", },
+  { id: "emp-032", name: "Umar Anayat", email: "umar.anayat@pdc.com.pk", departmentId: "dept-design", departmentKey: "design", teamId: "team-design-viz", designation: "3D Visualizer", status: "active", joinedOn: "2023-05-01", salary: { basic: 60681.82, medical: 6818.18, travel: 7500 }, bank: "Meezan Bank", account: "12760113136573", accountTitle: "Kalsoom Bibi", cnic: "35202-6435055-5", city: "Lahore", note: "Mother's account", },
+  { id: "emp-033", name: "Muhammad Ibrahim", email: "muhammad.ibrahim@pdc.com.pk", departmentId: "dept-design", departmentKey: "design", teamId: "team-design-viz", designation: "3D Visualizer", status: "active", joinedOn: "2023-08-01", salary: { basic: 44500, medical: 5000, travel: 5500 }, bank: "HBL", account: "53737000238403", accountTitle: "M. Shoaib", city: "Lahore", },
+  { id: "emp-034", name: "Muhammad Abdullah", email: "muhammad.abdullah@pdc.com.pk", departmentId: "dept-design", departmentKey: "design", teamId: "team-design-viz", designation: "3D Visualizer", status: "active", joinedOn: "2026-04-23", salary: { basic: 60681.82, medical: 6818.18, travel: 7500 }, bank: "Bank Alfalah", account: "55025002450390", accountTitle: "Muhammad Abdullah", cnic: "35202-6363976-3", city: "Lahore", note: "8 Days Salary", },
+  { id: "emp-035", name: "Hassan", email: "hassan@pdc.com.pk", departmentId: "dept-design", departmentKey: "design", teamId: "team-design-arch", designation: "Draftsman", status: "active", joinedOn: "2024-06-01", salary: { basic: 28318.18, medical: 3181.82, travel: 3500 }, bank: "Bank Alfalah", account: "55025002423866", accountTitle: "Hassan Raza", city: "Lahore", },
+  { id: "emp-036", name: "Aadil Fahim", email: "aadil.fahim@pdc.com.pk", departmentId: "dept-admin", departmentKey: "admin", teamId: "team-admin-hr", designation: "Manager HR", status: "active", joinedOn: "2022-10-01", salary: { basic: 80909.09, medical: 9090.91, travel: 10000 }, bank: "Bank Alfalah", account: "55025001928836", accountTitle: "Aadil Fahim Khan", cnic: "14301-4157393-7", city: "Kohat", },
+  { id: "emp-037", name: "Muhammad Hamza", email: "muhammad.hamza@pdc.com.pk", departmentId: "dept-admin", departmentKey: "admin", teamId: "team-admin-hr", designation: "HR Executive", status: "active", onProbation: true, joinedOn: "2026-04-09", salary: { basic: 60681.82, medical: 6818.18, travel: 7500 }, bank: "Allied Bank", account: "01750010160216610018", accountTitle: "Muhammad Hamza", cnic: "35201-2984321-5", city: "Lahore", note: "New Joining, 22 Days", },
+  { id: "emp-038", name: "Ajmal Ramzan", email: "ajmal.ramzan@pdc.com.pk", departmentId: "dept-admin", departmentKey: "admin", teamId: "team-admin-accounts", designation: "Admin", status: "active", joinedOn: "2023-01-01", salary: { basic: 44500, medical: 5000, travel: 5500 }, bank: "Meezan Bank", account: "5002500960", accountTitle: "Muhammad Ajmal Ramzan", city: "Lahore", },
+  { id: "emp-039", name: "Bilal", email: "bilal@pdc.com.pk", departmentId: "dept-admin", departmentKey: "admin", teamId: "team-admin-accounts", designation: "Office Boy", status: "active", joinedOn: "2023-06-01", salary: { basic: 28318.18, medical: 3181.82, travel: 3500 }, bank: "Jazz Cash", account: "03290532676", accountTitle: "Muhammad Hussain", city: "Lahore", },
+  { id: "emp-040", name: "Ammar", email: "ammar@pdc.com.pk", departmentId: "dept-admin", departmentKey: "admin", teamId: "team-admin-accounts", designation: "Office Boy", status: "active", joinedOn: "2023-06-01", salary: { basic: 28318.18, medical: 3181.82, travel: 3500 }, bank: "Easypaisa", account: "03126848271", accountTitle: "Muhammad Ammar", city: "Lahore", },
+  { id: "emp-041", name: "Ali Hassan", email: "ali.hassan@pdc.com.pk", departmentId: "dept-admin", departmentKey: "admin", teamId: "team-admin-accounts", designation: "Office Boy", status: "active", joinedOn: "2026-04-14", salary: { basic: 28317.37, medical: 3181.73, travel: 3499.9 }, bank: "Jazz Cash", account: "03056239681", accountTitle: "Ali Hassan", city: "Lahore", },
+  { id: "emp-042", name: "Rukhsana (Cleaner)", email: "rukhsana@pdc.com.pk", departmentId: "dept-admin", departmentKey: "admin", teamId: "team-admin-accounts", designation: "Cleaner", status: "active", joinedOn: "2023-01-01", salary: { basic: 6472.73, medical: 727.27, travel: 800 }, bank: "Meezan Bank", account: "02050107506833", accountTitle: "Muhammad Ajmal Ramzan", city: "Lahore", },
 ];
-
-const ROWS: Row[] = [
-  // --- Sales & Marketing ---
-  ["emp-001", "Bilal Ahmed", "dept-sales", "sales", "team-sales-inside", "Head of Sales", "active", "2019-03-11", 300000, 28000, 35000],
-  ["emp-002", "Hamza Tariq", "dept-sales", "sales", "team-sales-field", "Senior Sales Executive", "active", "2020-07-01", 165000, 15000, 20000],
-  ["emp-003", "Usman Raza", "dept-sales", "sales", "team-sales-inside", "Sales Executive", "active", "2021-09-15", 95000, 9000, 12000],
-  ["emp-004", "Zainab Ali", "dept-sales", "sales", "team-sales-field", "Sales Executive", "active", "2022-01-20", 92000, 9000, 12000],
-  ["emp-005", "Fahad Iqbal", "dept-sales", "sales", "team-sales-inside", "Business Development", "active", "2021-04-05", 110000, 10000, 13000],
-  ["emp-006", "Sana Mirza", "dept-sales", "sales", "team-sales-field", "Marketing Lead", "active", "2020-11-10", 140000, 13000, 16000],
-  ["emp-007", "Hira Shah", "dept-sales", "sales", "team-sales-field", "Marketing Associate", "active", "2023-02-01", 70000, 7000, 9000],
-  ["emp-008", "Kamran Nadeem", "dept-sales", "sales", "team-sales-inside", "Sales Executive", "inactive", "2022-08-12", 88000, 8000, 11000],
-
-  // --- Estimation (technical) ---
-  ["emp-009", "Adnan Sheikh", "dept-estimation", "estimation", "team-est-civil", "Estimation Manager", "active", "2018-06-01", 280000, 26000, 32000],
-  ["emp-010", "Faisal Mehmood", "dept-estimation", "estimation", "team-est-civil", "Senior Estimator", "active", "2020-02-17", 175000, 16000, 20000],
-  ["emp-011", "Owais Khan", "dept-estimation", "estimation", "team-est-mep", "Estimator", "active", "2021-10-01", 105000, 10000, 13000],
-  ["emp-012", "Rabia Aslam", "dept-estimation", "estimation", "team-est-civil", "Estimator", "active", "2022-03-22", 102000, 10000, 13000],
-  ["emp-013", "Junaid Akhtar", "dept-estimation", "estimation", "team-est-mep", "Quantity Surveyor", "active", "2021-01-11", 120000, 11000, 14000],
-  ["emp-014", "Saad Qureshi", "dept-estimation", "estimation", "team-est-civil", "Junior Estimator", "active", "2023-05-02", 68000, 6500, 9000],
-  ["emp-015", "Maryam Nawaz", "dept-estimation", "estimation", "team-est-mep", "Junior Estimator", "active", "2023-08-14", 65000, 6500, 9000],
-  ["emp-016", "Talha Riaz", "dept-estimation", "estimation", "team-est-mep", "Senior Estimator", "active", "2020-09-09", 168000, 15000, 19000],
-
-  // --- Design (technical) ---
-  ["emp-017", "Ayesha Khan", "dept-design", "design", "team-design-arch", "Design Lead", "active", "2019-08-19", 260000, 24000, 30000],
-  ["emp-018", "Hassan Javed", "dept-design", "design", "team-design-viz", "Senior Designer", "active", "2021-03-03", 160000, 15000, 19000],
-  ["emp-019", "Noor Fatima", "dept-design", "design", "team-design-arch", "Architect", "active", "2021-12-01", 115000, 11000, 14000],
-  ["emp-020", "Bilal Saeed", "dept-design", "design", "team-design-viz", "3D Artist", "active", "2022-06-20", 98000, 9000, 12000],
-  ["emp-021", "Areeba Malik", "dept-design", "design", "team-design-arch", "Junior Designer", "active", "2023-09-05", 62000, 6000, 8000],
-  ["emp-022", "Daniyal Yousaf", "dept-design", "design", "team-design-viz", "Architect", "active", "2022-02-14", 112000, 11000, 14000],
-
-  // --- Admin & HR ---
-  ["emp-023", "Sadia Rauf", "dept-admin", "admin", "team-admin-hr", "HR Manager", "active", "2019-05-13", 230000, 22000, 27000],
-  ["emp-024", "Imran Baig", "dept-admin", "admin", "team-admin-accounts", "Finance Manager", "active", "2018-10-22", 290000, 27000, 33000],
-  ["emp-025", "Nida Asif", "dept-admin", "admin", "team-admin-hr", "HR Executive", "active", "2022-04-18", 92000, 9000, 12000],
-  ["emp-026", "Waleed Anwar", "dept-admin", "admin", "team-admin-accounts", "Senior Accountant", "active", "2020-12-07", 150000, 14000, 18000],
-  ["emp-027", "Tooba Hashmi", "dept-admin", "admin", "team-admin-accounts", "Accountant", "active", "2022-07-25", 98000, 9000, 12000],
-  ["emp-028", "Shahbaz Gul", "dept-admin", "admin", "team-admin-accounts", "Admin Officer", "active", "2023-01-30", 72000, 7000, 9000],
-  ["emp-029", "Mehwish Iftikhar", "dept-admin", "admin", "team-admin-hr", "Office Manager", "active", "2021-06-16", 105000, 10000, 13000],
-  ["emp-030", "Asad Mahmood", "dept-admin", "admin", "team-admin-hr", "HR Executive", "active", "2022-11-11", 90000, 9000, 12000],
-
-  // --- Departed (kept on record for history + final settlement) ---
-  ["emp-031", "Rizwan Haider", "dept-estimation", "estimation", "team-est-civil", "Estimator", "inactive", "2021-05-10", 108000, 10000, 13000],
-  ["emp-032", "Mahnoor Siddiqui", "dept-design", "design", "team-design-viz", "3D Artist", "inactive", "2022-09-01", 96000, 9000, 12000],
-];
-
-/**
- * Employees who have left. Keyed by id; sets the leaving date and reason used by
- * the offboarding view and the final-settlement calculator. Their payroll
- * history is preserved up to (and including) their leaving month.
- */
-export const SEED_DEPARTURES: Record<
-  string,
-  { leftOn: string; exitReason: Employee["exitReason"]; exitNote?: string }
-> = {
-  "emp-008": {
-    leftOn: "2026-02-19",
-    exitReason: "resigned",
-    exitNote: "Moved to a competitor. Notice period served in full.",
-  },
-  "emp-031": {
-    leftOn: "2026-04-30",
-    exitReason: "contract_end",
-    exitNote: "Fixed-term project contract completed.",
-  },
-  "emp-032": {
-    leftOn: "2026-05-23",
-    exitReason: "resigned",
-    exitNote: "Relocating abroad. Final dues under processing.",
-  },
-};
-
-export const EMPLOYEES: Employee[] = ROWS.map(
-  ([id, name, departmentId, departmentKey, teamId, designation, status, joinedOn, basic, medical, travel]) => {
-    const exit = SEED_DEPARTURES[id];
-    return {
-      id,
-      name,
-      email: `${name.toLowerCase().replace(/[^a-z]+/g, ".")}@pdc.com.pk`,
-      departmentId,
-      departmentKey,
-      teamId,
-      designation,
-      status,
-      joinedOn,
-      salary: { basic, medical, travel },
-      ...(exit ? { leftOn: exit.leftOn, exitReason: exit.exitReason, exitNote: exit.exitNote } : {}),
-    };
-  },
-);
 
 // ---- lookups -----------------------------------------------------------------
 export const employeeById = new Map(EMPLOYEES.map((e) => [e.id, e]));

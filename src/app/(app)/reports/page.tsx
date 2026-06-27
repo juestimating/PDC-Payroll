@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { useAppState } from "@/components/providers/app-state";
 import { DEPARTMENTS, MONTHS, departmentTotals, monthlyTrend, orgTotals } from "@/lib/data";
-import { formatMonthKey, formatMonthKeyLong, formatMonthShort } from "@/lib/format";
+import { formatMonthKey, formatMonthKeyLong, formatMonthShort, formatPKRMillions } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -202,7 +202,7 @@ export default function ReportsPage() {
         <Card>
           <CardHeader title="Cost split" subtitle={scopeLabel} />
           <CardBody>
-            <Donut data={split} centerValue={pkrCr(org.totalCost)} centerLabel="Total" />
+            <Donut data={split} centerValue={formatPKRMillions(org.totalCost)} centerLabel="Total" />
             <div className="mt-3 space-y-1.5">
               {split.map((s) => (
                 <div key={s.label} className="flex items-center gap-2 text-sm">
@@ -286,6 +286,3 @@ export default function ReportsPage() {
   );
 }
 
-function pkrCr(n: number): string {
-  return `${(n / 1_00_00_000).toFixed(2)}Cr`;
-}

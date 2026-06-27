@@ -21,7 +21,7 @@ import {
   monthlyTrend,
   orgTotals,
 } from "@/lib/data";
-import { formatMonthKeyLong, formatMonthShort, formatPercent } from "@/lib/format";
+import { formatMonthKeyLong, formatMonthShort, formatPercent, formatPKRMillions } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -187,7 +187,7 @@ export default function DashboardPage() {
           <CardBody>
             <Donut
               data={composition}
-              centerValue={`${(totals.gross / 1_00_00_000).toFixed(2)}Cr`}
+              centerValue={formatPKRMillions(totals.gross)}
               centerLabel="Gross"
             />
             <div className="mt-3 space-y-1.5">

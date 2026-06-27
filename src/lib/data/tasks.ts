@@ -16,11 +16,11 @@ interface Recurring {
 }
 
 const RECURRING: Recurring[] = [
-  { key: "process", title: (m) => `Process ${m} payroll`, day: "25", assigneeId: "emp-023", kind: "payroll", priority: "high" },
+  { key: "process", title: (m) => `Process ${m} payroll`, day: "25", assigneeId: "emp-036", kind: "payroll", priority: "high" },
   { key: "commissions", title: (m) => `Approve ${m} sales commissions`, day: "22", assigneeId: "emp-001", kind: "general", priority: "high" },
-  { key: "overtime", title: (m) => `Verify ${m} overtime logs`, day: "21", assigneeId: "emp-009", kind: "general", priority: "medium" },
-  { key: "expenses", title: (m) => `Reconcile ${m} expenses`, day: "27", assigneeId: "emp-024", kind: "general", priority: "medium" },
-  { key: "tax", title: (m) => `File ${m} withholding tax`, day: "15", assigneeId: "emp-024", kind: "general", priority: "medium" },
+  { key: "overtime", title: (m) => `Verify ${m} overtime logs`, day: "21", assigneeId: "emp-016", kind: "general", priority: "medium" },
+  { key: "expenses", title: (m) => `Reconcile ${m} expenses`, day: "27", assigneeId: "emp-038", kind: "general", priority: "medium" },
+  { key: "tax", title: (m) => `File ${m} withholding tax`, day: "15", assigneeId: "emp-036", kind: "general", priority: "medium" },
 ];
 
 const MONTH_LABEL: Record<string, string> = {};
@@ -72,7 +72,7 @@ function buildTasks(): TaskItem[] {
       description: "Set up salary structure, accounts, and equipment.",
       status: "todo",
       priority: "medium",
-      assigneeId: "emp-023",
+      assigneeId: "emp-036",
       dueDate: `${CURRENT_MONTH}-18`,
       month: CURRENT_MONTH,
       kind: "general",
@@ -83,7 +83,7 @@ function buildTasks(): TaskItem[] {
       description: "Reconcile recomputed totals against stored figures for Q2.",
       status: "in_progress",
       priority: "high",
-      assigneeId: "emp-024",
+      assigneeId: "emp-038",
       dueDate: `${CURRENT_MONTH}-30`,
       month: CURRENT_MONTH,
       kind: "general",
@@ -94,7 +94,7 @@ function buildTasks(): TaskItem[] {
       description: "Propose updated travel tiers for FY26.",
       status: "todo",
       priority: "low",
-      assigneeId: "emp-029",
+      assigneeId: "emp-036",
       dueDate: `${CURRENT_MONTH}-28`,
       month: CURRENT_MONTH,
       kind: "general",

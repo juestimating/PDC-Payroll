@@ -150,30 +150,35 @@ export interface OrgTotals {
   deductions: number;
   net: number;
   expenses: number;
-  payrollCost: number; // = gross
-  totalCost: number; // = gross + expenses
+  payrollCost: number; // = gross + commission + overtime
+  totalCost: number; // = payrollCost + expenses
 }
 
 export function orgTotals(month: string): OrgTotals {
   const rows = recordsForMonth(month);
   const expenses = sum(expensesByMonth.get(month) ?? [], (e) => e.amount);
+  // gross is salary only; commission and overtime are separate payouts, so the
+  // true payroll cost is salary + commission + overtime.
   const gross = sum(rows, (r) => r.gross);
+  const commission = sum(rows, (r) => (r.commission ? commissionTotal(r.commission) : 0));
+  const overtime = sum(rows, (r) => r.overtime?.amount ?? 0);
+  const payrollCost = gross + commission + overtime;
   return {
     month,
     headcount: rows.length,
     basic: sum(rows, (r) => r.basic),
     medical: sum(rows, (r) => r.medical),
     travel: sum(rows, (r) => r.travel),
-    commission: sum(rows, (r) => (r.commission ? commissionTotal(r.commission) : 0)),
-    overtime: sum(rows, (r) => r.overtime?.amount ?? 0),
+    commission,
+    overtime,
     gross,
     taxable: sum(rows, (r) => r.taxable),
     tax: sum(rows, (r) => r.withholdingTax),
     deductions: sum(rows, (r) => r.deductions.reduce((s, d) => s + d.amount, 0)),
     net: sum(rows, (r) => r.net),
     expenses,
-    payrollCost: gross,
-    totalCost: gross + expenses,
+    payrollCost,
+    totalCost: payrollCost + expenses,
   };
 }
 
@@ -201,6 +206,9 @@ export function departmentTotals(month: string): DeptTotals[] {
     const de = exp.filter((e) => e.departmentId === d.id);
     const gross = sum(dr, (r) => r.gross);
     const expenses = sum(de, (e) => e.amount);
+    const commission = sum(dr, (r) => (r.commission ? commissionTotal(r.commission) : 0));
+    const overtime = sum(dr, (r) => r.overtime?.amount ?? 0);
+    const payrollCost = gross + commission + overtime;
     return {
       departmentId: d.id,
       key: d.key,
@@ -210,11 +218,11 @@ export function departmentTotals(month: string): DeptTotals[] {
       gross,
       tax: sum(dr, (r) => r.withholdingTax),
       net: sum(dr, (r) => r.net),
-      commission: sum(dr, (r) => (r.commission ? commissionTotal(r.commission) : 0)),
-      overtime: sum(dr, (r) => r.overtime?.amount ?? 0),
+      commission,
+      overtime,
       expenses,
-      payrollCost: gross,
-      totalCost: gross + expenses,
+      payrollCost,
+      totalCost: payrollCost + expenses,
     };
   });
 }
@@ -474,6 +482,53 @@ export function getOvertime(month: string, q: PayrollQuery = {}): OvertimeRow[] 
       amount: r.overtime!.amount,
     }))
     .sort((a, b) => b.amount - a.amount);
+}
+
+// =============================================================================
+// Commissions (sales teams) — the sales counterpart to overtime.
+// One row per sales rep, decomposed into the tracked parts: new-sales
+// commission, old bonus (carry-over deals), and any additional bonus.
+// =============================================================================
+export interface CommissionRow {
+  employee: Employee;
+  month: string;
+  newSales: number;
+  oldBonus: number;
+  additionalBonus: number;
+  total: number;
+}
+
+export function getCommissions(month: string, q: PayrollQuery = {}): CommissionRow[] {
+  return getPayroll(month, q)
+    .filter((r) => r.commission && commissionTotal(r.commission) > 0)
+    .map((r) => ({
+      employee: r.employee,
+      month: r.month,
+      newSales: r.commission!.newSales,
+      oldBonus: r.commission!.oldBonus,
+      additionalBonus: r.commission!.additionalBonus,
+      total: commissionTotal(r.commission!),
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+export interface CommissionTotals {
+  total: number;
+  newSales: number;
+  oldBonus: number;
+  additionalBonus: number;
+  reps: number;
+}
+
+export function commissionTotals(month: string, q: PayrollQuery = {}): CommissionTotals {
+  const rows = getCommissions(month, q);
+  return {
+    total: sum(rows, (r) => r.total),
+    newSales: sum(rows, (r) => r.newSales),
+    oldBonus: sum(rows, (r) => r.oldBonus),
+    additionalBonus: sum(rows, (r) => r.additionalBonus),
+    reps: rows.length,
+  };
 }
 
 // =============================================================================
