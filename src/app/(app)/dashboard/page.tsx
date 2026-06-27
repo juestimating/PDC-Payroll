@@ -136,8 +136,12 @@ export default function DashboardPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader
-            title="12-month trend"
-            subtitle="How the numbers move across the year"
+            title={trend.length <= 1 ? "Monthly figures" : "Trend"}
+            subtitle={
+              trend.length <= 1
+                ? `${formatMonthKeyLong(month)} · trend builds as you start new months`
+                : "How the figures move month over month"
+            }
             action={
               <Segmented<TrendMetric>
                 size="sm"

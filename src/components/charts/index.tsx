@@ -77,6 +77,20 @@ export function TrendArea({
   height?: number;
 }) {
   const id = `grad-${dataKey}`;
+  // A single period has no line to draw — render a clean bar instead.
+  if (data.length <= 1) {
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={data} margin={{ top: 10, right: 8, bottom: 0, left: 8 }}>
+          <CartesianGrid vertical={false} stroke={CHART.grid} />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tick={axisTick} dy={6} />
+          <YAxis tickLine={false} axisLine={false} width={46} tick={axisTick} tickFormatter={compact} />
+          <Tooltip content={<CurrencyTooltip />} cursor={{ fill: "rgba(14,23,38,0.03)" }} />
+          <Bar dataKey={dataKey} name={name} fill={color} radius={[6, 6, 0, 0]} barSize={64} />
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 10, right: 8, bottom: 0, left: 8 }}>
@@ -113,6 +127,22 @@ export function MultiTrend({
   series: { key: string; name: string; color: string }[];
   height?: number;
 }) {
+  // A single period has no line to draw — render grouped bars instead.
+  if (data.length <= 1) {
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={data} margin={{ top: 10, right: 8, bottom: 0, left: 8 }}>
+          <CartesianGrid vertical={false} stroke={CHART.grid} />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tick={axisTick} dy={6} />
+          <YAxis tickLine={false} axisLine={false} width={46} tick={axisTick} tickFormatter={compact} />
+          <Tooltip content={<CurrencyTooltip />} cursor={{ fill: "rgba(14,23,38,0.03)" }} />
+          {series.map((s) => (
+            <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.color} radius={[5, 5, 0, 0]} barSize={44} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 10, right: 8, bottom: 0, left: 8 }}>

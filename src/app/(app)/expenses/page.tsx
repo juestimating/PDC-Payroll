@@ -145,7 +145,7 @@ export default function ExpensesPage() {
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Expense trend" subtitle="12-month spend, compare across months" />
+          <CardHeader title="Expense trend" subtitle="Spend by month" />
           <CardBody>
             <TrendArea data={trendData} dataKey="value" name="Expenses" color={CHART.accent} />
           </CardBody>

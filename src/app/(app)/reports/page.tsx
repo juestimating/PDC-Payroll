@@ -166,7 +166,7 @@ export default function ReportsPage() {
       </div>
 
       <Card className="mt-4">
-        <CardHeader title="Payroll, expenses & tax" subtitle="12-month trend across the org" />
+        <CardHeader title="Payroll, expenses & tax" subtitle="By month across the org" />
         <CardBody>
           <MultiTrend
             data={trend}
