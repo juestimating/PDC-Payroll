@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "node scripts/apply-migration.mjs"
+    "db:migrate": "node scripts/apply-migration.mjs",
+    "engine:check": "tsc -p scripts/tsconfig.engine.json && node .engine-build/scripts/engine-check.js && node .engine-build/scripts/checks/overtime-check.js && node .engine-build/scripts/checks/incentives-check.js && node .engine-build/scripts/checks/allocation-check.js && node .engine-build/scripts/checks/settlement-check.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

@@ -195,7 +195,7 @@ export function ComparisonBar({
           tickLine={false}
         />
         <Tooltip content={<CurrencyTooltip />} cursor={{ fill: "rgba(14,23,38,0.03)" }} />
-        <Bar dataKey="value" name="Total" radius={[0, 6, 6, 0]} barSize={18}>
+        <Bar dataKey="value" name="Total" radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}>
           {data.map((d, i) => (
             <Cell key={i} fill={d.color || CHART.brand} />
           ))}
@@ -230,6 +230,7 @@ export function Donut({
             outerRadius="92%"
             paddingAngle={2}
             stroke="none"
+            isAnimationActive={false}
           >
             {data.map((d, i) => (
               <Cell key={i} fill={d.color} />

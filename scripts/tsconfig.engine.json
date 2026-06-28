@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
+    "outDir": "../.engine-build",
+    "rootDir": "..",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "noEmit": false,
+    "types": ["node"]
+  },
+  "include": ["../src/lib/engine/**/*.ts", "./engine-check.ts", "./checks/**/*.ts"]
+}

@@ -32,6 +32,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# engine verification build output
+/.engine-build
+
 # editor
 .vscode/*
 !.vscode/extensions.json

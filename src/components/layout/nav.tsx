@@ -3,6 +3,7 @@ import {
   BarChart3,
   CreditCard,
   FileText,
+  Gauge,
   Landmark,
   LayoutDashboard,
   ListChecks,
@@ -24,6 +25,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { key: "overview", label: "Overview", href: "/overview", icon: Gauge, section: "Overview" },
   { key: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, section: "Overview" },
   { key: "my-payslip", label: "My Payslip", href: "/my-payslip", icon: FileText, section: "Overview" },
   { key: "payroll", label: "Payroll", href: "/payroll", icon: Wallet, section: "Payroll" },
