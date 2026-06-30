@@ -1,10 +1,11 @@
 // =============================================================================
 // Payroll engine — REAL logic ported from the production PDC payroll.
 //
-// Tax: Pakistan FBR 2025-26 salaried withholding slabs. WHT is always computed
-// on the FULL-MONTH contract gross, then prorated by days worked. The medical
-// allowance (gross ÷ 110 × 10) is tax-exempt. These formulas reproduce every
-// stored WHT/net figure in the April 2026 dataset exactly.
+// Tax: Pakistan FBR 2025-26 salaried withholding slabs. WHT is computed on the
+// EARNED salary — any unpaid-leave / partial-day deduction is removed first
+// (earned = contractGross × days/30), then the slabs are applied to that base.
+// The medical allowance (earned ÷ 110 × 10) is tax-exempt. Full-month staff are
+// unchanged; partial-month staff are taxed on what they actually earned.
 //
 // Data: the headline payroll for the live month is REAL seed data (see seed.ts),
 // not generated. The generators here are only for opening a NEW month, which
@@ -98,14 +99,22 @@ export interface WhtBreakdown {
 }
 
 /**
- * Monthly withholding tax. ALWAYS computed on the full-month contract gross,
- * then prorated by `days/30`. Medical allowance (gross ÷ 110 × 10) is exempt.
+ * Monthly withholding tax, computed on the EARNED (post-leave) salary.
+ *
+ * If an employee took unpaid leave / worked a partial month, the unpaid-leave
+ * deduction is removed FIRST — earned = contractGross × days/30 — and the FBR
+ * slabs are then applied to that reduced base. Because the slabs are annualised
+ * on the reduced salary, this can drop a partial-month employee into a lower
+ * bracket (intended) rather than just scaling the full-month tax by days/30.
+ * Medical allowance (earned ÷ 110 × 10) is exempt. Full-month staff (days = 30)
+ * are unaffected: earned == contractGross, so the result is identical.
  */
 export function calcWHT(contractGross: number, days = 30): WhtBreakdown {
   const cg = Number(contractGross) || 0;
   const d = Number(days) || 30;
-  const medical = (cg / 110) * 10;
-  const taxable = cg - medical;
+  const earned = (cg * d) / 30; // salary after removing the unpaid-leave deduction
+  const medical = (earned / 110) * 10;
+  const taxable = earned - medical;
   const annual = taxable * 12;
   let lower = 0;
   let annualTax = 0;
@@ -117,7 +126,7 @@ export function calcWHT(contractGross: number, days = 30): WhtBreakdown {
     }
     lower = upper;
   }
-  const wht = r2((annualTax / 12) * (d / 30));
+  const wht = r2(annualTax / 12);
   return { medical, taxable, annualTax, wht };
 }
 
