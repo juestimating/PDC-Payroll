@@ -8,8 +8,13 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Role } from "@/lib/data";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Prefer the Supabase↔Vercel integration's variable names, falling back to the
+// classic NEXT_PUBLIC_* names (works with either setup / any project).
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+const anonKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  process.env.SUPABASE_ANON_KEY;
 
 /** True when Supabase env is configured. When false, the app runs in demo/mock mode. */
 export function hasSupabaseEnv(): boolean {

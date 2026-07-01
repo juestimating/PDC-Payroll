@@ -10,8 +10,9 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PREFIXES = ["/login", "/api/health", "/_next", "/favicon"];
 
 export async function middleware(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   // Demo/mock mode: no auth configured → let everything through unchanged.
   if (!url || !anonKey) return NextResponse.next();
