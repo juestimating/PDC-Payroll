@@ -1,11 +1,13 @@
 import {
   BadgePercent,
   BarChart3,
+  CalendarOff,
+  CheckCheck,
   CreditCard,
   FileText,
   Gauge,
+  HandCoins,
   Landmark,
-  LayoutDashboard,
   ListChecks,
   Timer,
   TrendingDown,
@@ -13,6 +15,7 @@ import {
   UserMinus,
   Users,
   Wallet,
+  Wallet2,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -26,14 +29,17 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { key: "overview", label: "Overview", href: "/overview", icon: Gauge, section: "Overview" },
-  { key: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, section: "Overview" },
   { key: "my-payslip", label: "My Payslip", href: "/my-payslip", icon: FileText, section: "Overview" },
   { key: "payroll", label: "Payroll", href: "/payroll", icon: Wallet, section: "Payroll" },
   { key: "overtime", label: "Overtime", href: "/overtime", icon: Timer, section: "Payroll" },
-  { key: "commissions", label: "Commissions", href: "/commissions", icon: BadgePercent, section: "Payroll" },
   { key: "increments", label: "Increments", href: "/increments", icon: TrendingUp, section: "Payroll" },
   { key: "deductions", label: "Deductions", href: "/deductions", icon: TrendingDown, section: "Payroll" },
   { key: "tax", label: "Tax", href: "/tax", icon: Landmark, section: "Payroll" },
+  { key: "loans", label: "Loans", href: "/loans", icon: HandCoins, section: "Adjustments" },
+  { key: "advances", label: "Advances", href: "/advances", icon: Wallet2, section: "Adjustments" },
+  { key: "leaves", label: "Unpaid Leaves", href: "/leaves", icon: CalendarOff, section: "Adjustments" },
+  { key: "incentives", label: "Sales Incentives", href: "/incentives", icon: BadgePercent, section: "Adjustments" },
+  { key: "approvals", label: "Approvals", href: "/approvals", icon: CheckCheck, section: "Adjustments" },
   { key: "employees", label: "Employees", href: "/employees", icon: Users, section: "People" },
   { key: "offboarding", label: "Offboarding", href: "/offboarding", icon: UserMinus, section: "People" },
   { key: "expenses", label: "Expenses", href: "/expenses", icon: CreditCard, section: "Finance" },
@@ -41,4 +47,4 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "tasks", label: "Tasks", href: "/tasks", icon: ListChecks, section: "Workspace" },
 ];
 
-export const SECTION_ORDER = ["Overview", "Payroll", "People", "Finance", "Workspace"];
+export const SECTION_ORDER = ["Overview", "Payroll", "Adjustments", "People", "Finance", "Workspace"];

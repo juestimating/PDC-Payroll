@@ -8,7 +8,7 @@
 export type DepartmentKey = "sales" | "estimation" | "design" | "admin";
 export type EmployeeStatus = "active" | "inactive";
 export type PayrollStatus = "draft" | "processing" | "paid" | "closed";
-export type Role = "admin" | "hr" | "dept_head" | "employee";
+export type Role = "super_admin" | "admin" | "hr" | "sales_lead" | "estimation_lead";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "medium" | "high";
 

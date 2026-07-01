@@ -1,19 +1,22 @@
 // =============================================================================
-// Browser Supabase client — SAFE for the client bundle.
-// Uses ONLY the public anon key. Every read/write is gated by RLS policies.
-//
-// NOTE: This is wiring scaffolding for the later logic phase. The current
-// front-end runs on mock data (see src/lib/data). Swap the data adapters to
-// call this client once the schema + RLS are in place.
+// Browser Supabase client — SAFE for the client bundle (public anon key only).
+// Uses @supabase/ssr's createBrowserClient so the session lives in cookies that
+// the server client + middleware can read. Every read/write is RLS-gated.
 // =============================================================================
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 let browserClient: SupabaseClient | null = null;
 
-/** Singleton browser client (anon key, RLS-gated). */
+/** True when Supabase env is configured (else the app runs in demo/mock mode). */
+export function hasSupabaseBrowserEnv(): boolean {
+  return Boolean(url && anonKey);
+}
+
+/** Singleton browser client (anon key, cookie session, RLS-gated). */
 export function getSupabaseBrowser(): SupabaseClient {
   if (!url || !anonKey) {
     throw new Error(
@@ -21,7 +24,7 @@ export function getSupabaseBrowser(): SupabaseClient {
     );
   }
   if (!browserClient) {
-    browserClient = createClient(url, anonKey);
+    browserClient = createBrowserClient(url, anonKey);
   }
   return browserClient;
 }

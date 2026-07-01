@@ -35,6 +35,11 @@ next-env.d.ts
 # engine verification build output
 /.engine-build
 
+# local dev/test scripts that read/hold temp credentials — keep out of git
+scripts/rls-test.mjs
+scripts/loan-flow-test.mjs
+scripts/provision-users.mjs
+
 # editor
 .vscode/*
 !.vscode/extensions.json

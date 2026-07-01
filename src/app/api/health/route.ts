@@ -1,32 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-// Always run at request time — this does live database I/O.
+// Always run at request time so uptime monitors get a fresh response.
 export const dynamic = "force-dynamic";
 
 /**
- * Health check that proves the Supabase connection end to end. Uses the
- * server-only admin client to count departments. Returns 200 when connected,
- * 503 otherwise. Handy for uptime monitors and verifying a Vercel deploy.
+ * Public liveness check. Intentionally does NOT touch the database and does NOT
+ * use the service-role client — a public route must never hold a privileged
+ * connection or leak row data. It only reports that the process is up and
+ * whether the Supabase URL is configured in the environment.
  */
 export async function GET() {
-  try {
-    const supabase = getSupabaseAdmin();
-    const { count, error } = await supabase
-      .from("departments")
-      .select("*", { count: "exact", head: true });
-
-    if (error) throw error;
-
-    return NextResponse.json({
-      status: "ok",
-      database: "connected",
-      departments: count ?? 0,
-    });
-  } catch (e) {
-    return NextResponse.json(
-      { status: "error", database: "disconnected", message: (e as Error).message },
-      { status: 503 },
-    );
-  }
+  return NextResponse.json({
+    status: "ok",
+    env: { supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) },
+  });
 }

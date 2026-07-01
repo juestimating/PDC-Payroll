@@ -10,22 +10,41 @@ interface AppState {
   user: AppUser;
   month: string;
   setMonth: (m: string) => void;
+  /** True when a real Supabase session drives the role (hides the demo switcher). */
+  authed: boolean;
 }
 
 const Ctx = createContext<AppState | null>(null);
 
 /**
- * Global UI state: the previewed role (for the RBAC demo) and the selected
- * payroll month. In production the role comes from the authenticated session;
- * here a switcher lets you preview every role's view.
+ * Global UI state: the active role + selected payroll month. When `authed` (a
+ * real Supabase session), the role/user come from the server (the demo switcher
+ * is hidden). Otherwise a client switcher lets you preview each role on mock data.
  */
-export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<Role>("admin");
+export function AppStateProvider({
+  children,
+  authed = false,
+  initialRole,
+  initialUser,
+}: {
+  children: ReactNode;
+  authed?: boolean;
+  initialRole?: Role;
+  initialUser?: AppUser;
+}) {
+  const [role, setRole] = useState<Role>(initialRole ?? "super_admin");
   const [month, setMonth] = useState<string>(CURRENT_MONTH);
 
   const value = useMemo<AppState>(
-    () => ({ role, setRole, user: DEMO_USER_BY_ROLE[role], month, setMonth }),
-    [role, month],
+    () => ({
+      role,
+      setRole,
+      user: authed && initialUser ? initialUser : DEMO_USER_BY_ROLE[role],
+      month,
+      setMonth,
+      authed,
+    }),
+    [role, month, authed, initialUser],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

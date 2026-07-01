@@ -1,15 +1,17 @@
 // =============================================================================
-// Demo app users for the role switcher. Lets you preview how the UI changes per
-// role (the real gate is RLS server-side). Each maps to a real employee where
-// relevant so the "self" views show believable data.
+// Demo app users for the DEV-ONLY role switcher. Lets you preview how the UI
+// changes per role. In production the role comes from the authenticated Supabase
+// session (JWT claim), and RLS is the real gate — this switcher is hidden.
+// Each maps to a real employee where relevant so "self" views show believable data.
 // =============================================================================
 import type { AppUser } from "./types";
 
 export const DEMO_USERS: AppUser[] = [
-  { id: "user-admin", name: "Admin (You)", role: "admin" },
+  { id: "user-super", name: "Owner (You)", role: "super_admin" },
+  { id: "user-admin", name: "Ajmal Ramzan", role: "admin", departmentId: "dept-admin", employeeId: "emp-038" },
   { id: "user-hr", name: "Aadil Fahim", role: "hr", departmentId: "dept-admin", employeeId: "emp-036" },
-  { id: "user-head", name: "Awais Munir", role: "dept_head", departmentId: "dept-estimation", employeeId: "emp-016" },
-  { id: "user-employee", name: "Ayesha Khan", role: "employee", departmentId: "dept-sales", employeeId: "emp-011" },
+  { id: "user-sales", name: "Muhammad Yahya", role: "sales_lead", departmentId: "dept-sales", employeeId: "emp-001" },
+  { id: "user-estimation", name: "Awais Munir", role: "estimation_lead", departmentId: "dept-estimation", employeeId: "emp-016" },
 ];
 
 export const DEMO_USER_BY_ROLE = Object.fromEntries(

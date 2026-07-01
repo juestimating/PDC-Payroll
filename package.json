@@ -12,6 +12,7 @@
     "engine:check": "tsc -p scripts/tsconfig.engine.json && node .engine-build/scripts/engine-check.js && node .engine-build/scripts/checks/overtime-check.js && node .engine-build/scripts/checks/incentives-check.js && node .engine-build/scripts/checks/allocation-check.js && node .engine-build/scripts/checks/settlement-check.js"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.107.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.17.0",

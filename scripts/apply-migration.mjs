@@ -36,8 +36,9 @@ const files = readdirSync(dir)
 const sql = files.map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
 console.log("applying:", files.join(", "));
 
-// ap-southeast-1 (aws-1) is this project's region; others are fallbacks.
+// ap-southeast-2 (aws-1) is this project's region; others are fallbacks.
 const COMBOS = [
+  "aws-1-ap-southeast-2", "aws-0-ap-southeast-2",
   "aws-1-ap-southeast-1", "aws-1-ap-south-1", "aws-0-ap-southeast-1",
   "aws-1-us-east-1", "aws-1-eu-central-1", "aws-1-us-west-1",
   "aws-0-us-east-1", "aws-0-eu-west-1",
