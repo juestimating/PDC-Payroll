@@ -10,7 +10,7 @@ import {
   getOpenMonth,
   getPayroll,
 } from "@/lib/data";
-import type { PayrollRow, PayrollStatus } from "@/lib/data";
+import type { DeductionItem, PayrollRow, PayrollStatus } from "@/lib/data";
 import { formatMonthKeyLong, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
@@ -27,6 +27,39 @@ import { PayslipSheet } from "@/components/payroll/payroll-breakdown";
 
 function earned(r: PayrollRow): number {
   return r.commission ? commissionTotal(r.commission) : (r.overtime?.amount ?? 0);
+}
+
+// Deduction columns are conditional: a column appears only when at least one
+// employee in the month has that kind of deduction. `advance` and `loan` get
+// their own columns; every other kind rolls up into a generic "Deductions".
+const ADVANCE_KINDS: DeductionItem["kind"][] = ["advance"];
+const LOAN_KINDS: DeductionItem["kind"][] = ["loan"];
+const OTHER_KINDS: DeductionItem["kind"][] = ["absence", "tax_adjustment", "other"];
+
+function dsum(r: PayrollRow, kinds: DeductionItem["kind"][]): number {
+  return r.deductions.reduce((s, d) => (kinds.includes(d.kind) ? s + d.amount : s), 0);
+}
+
+function deductionColumn(
+  key: string,
+  header: string,
+  kinds: DeductionItem["kind"][],
+): Column<PayrollRow> {
+  return {
+    key,
+    header,
+    align: "right",
+    cell: (r) => {
+      const v = dsum(r, kinds);
+      return v > 0 ? (
+        <span className="text-negative">
+          <Money value={v} />
+        </span>
+      ) : (
+        <span className="text-subtle">—</span>
+      );
+    },
+  };
 }
 
 export default function PayrollPage() {
@@ -51,12 +84,20 @@ export default function PayrollPage() {
           earned: a.earned + earned(r),
           gross: a.gross + r.gross,
           tax: a.tax + r.withholdingTax,
+          advance: a.advance + dsum(r, ADVANCE_KINDS),
+          loan: a.loan + dsum(r, LOAN_KINDS),
+          other: a.other + dsum(r, OTHER_KINDS),
           net: a.net + r.net,
         }),
-        { basic: 0, allow: 0, earned: 0, gross: 0, tax: 0, net: 0 },
+        { basic: 0, allow: 0, earned: 0, gross: 0, tax: 0, advance: 0, loan: 0, other: 0, net: 0 },
       ),
     [rows],
   );
+
+  // Only show a deduction column when the month actually has that kind.
+  const hasAdvance = t.advance > 0;
+  const hasLoan = t.loan > 0;
+  const hasOther = t.other > 0;
 
   const closed = month !== getOpenMonth();
 
@@ -120,6 +161,9 @@ export default function PayrollPage() {
         </span>
       ),
     },
+    ...(hasAdvance ? [deductionColumn("advance", "Advance", ADVANCE_KINDS)] : []),
+    ...(hasLoan ? [deductionColumn("loan", "Loan", LOAN_KINDS)] : []),
+    ...(hasOther ? [deductionColumn("deductions", "Deductions", OTHER_KINDS)] : []),
     {
       key: "net",
       header: "Net",
@@ -245,6 +289,21 @@ export default function PayrollPage() {
                 <td className="px-3 py-3 text-right tabular-nums text-negative">
                   <Money value={t.tax} compact />
                 </td>
+                {hasAdvance ? (
+                  <td className="px-3 py-3 text-right tabular-nums text-negative">
+                    <Money value={t.advance} compact />
+                  </td>
+                ) : null}
+                {hasLoan ? (
+                  <td className="px-3 py-3 text-right tabular-nums text-negative">
+                    <Money value={t.loan} compact />
+                  </td>
+                ) : null}
+                {hasOther ? (
+                  <td className="px-3 py-3 text-right tabular-nums text-negative">
+                    <Money value={t.other} compact />
+                  </td>
+                ) : null}
                 <td className="px-3 py-3 text-right tabular-nums text-brand-700">
                   <Money value={t.net} compact />
                 </td>
