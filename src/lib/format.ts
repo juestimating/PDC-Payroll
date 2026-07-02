@@ -90,6 +90,23 @@ export function formatMonthShort(key: string): string {
   return MONTHS[(m ?? 1) - 1];
 }
 
+/** The real calendar month key for today, e.g. "2026-07". */
+export function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Inclusive ascending list of month keys, e.g. monthRange("2026-04", "2026-07") -> ["2026-04", …, "2026-07"]. */
+export function monthRange(from: string, to: string): string[] {
+  const [fy, fm] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+  const out: string[] = [];
+  for (let i = fy * 12 + (fm - 1); i <= ty * 12 + (tm - 1); i++) {
+    out.push(`${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
+
 /** Initials from a full name, e.g. "Ayesha Khan" -> "AK". */
 export function initials(name: string): string {
   return name

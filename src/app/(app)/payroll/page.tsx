@@ -1,6 +1,7 @@
 import { Wallet } from "lucide-react";
 import { computePayrollForMonth } from "@/lib/db/payroll";
 import { listEntities } from "@/lib/db/employees";
+import { currentMonthKey, monthRange } from "@/lib/format";
 import { hasSupabaseEnv } from "@/lib/supabase/server";
 import { PayrollRunClient } from "@/components/payroll/payroll-run-client";
 import { EmptyState } from "@/components/ui/states";
@@ -27,8 +28,10 @@ export default async function PayrollPage({
   }
 
   const sp = await searchParams;
-  const month = /^\d{4}-\d{2}$/.test(sp.month ?? "") ? sp.month! : "2026-05";
+  const month = /^\d{4}-\d{2}$/.test(sp.month ?? "") ? sp.month! : currentMonthKey();
+  // Calendar-driven month list (newest first) — identical on every device.
+  const months = monthRange("2026-04", currentMonthKey()).reverse();
   const [rows, entities] = await Promise.all([computePayrollForMonth(month), listEntities()]);
 
-  return <PayrollRunClient rows={rows} entities={entities} month={month} />;
+  return <PayrollRunClient rows={rows} entities={entities} month={month} months={months} />;
 }

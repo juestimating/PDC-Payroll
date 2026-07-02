@@ -2,10 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, HandCoins, Plus } from "lucide-react";
+import { Ban, CheckCircle2, HandCoins, Pencil, Plus } from "lucide-react";
 import type { LoanRow, LoanInstallment } from "@/lib/db/loans";
 import type { EmployeeOption } from "@/lib/db/adjustments";
-import { createLoanAction, requestInstallmentPaidAction } from "@/app/(app)/loans/actions";
+import {
+  cancelLoanAction,
+  createLoanAction,
+  requestInstallmentPaidAction,
+  updateLoanAction,
+} from "@/app/(app)/loans/actions";
 import { formatMonthKey } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
@@ -27,6 +32,8 @@ const INSTALLMENT_TONE: Record<string, "positive" | "warning" | "neutral" | "inf
   cancelled: "neutral",
 };
 
+type Drill = "active" | "outstanding" | "lent" | null;
+
 export function LoansClient({
   loans,
   employees,
@@ -38,6 +45,7 @@ export function LoansClient({
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [detail, setDetail] = useState<LoanRow | null>(null);
+  const [drill, setDrill] = useState<Drill>(null);
 
   const active = loans.filter((l) => l.status === "active");
   const outstanding = active.reduce((s, l) => s + l.outstanding, 0);
@@ -75,7 +83,7 @@ export function LoansClient({
       hideOnMobile: true,
       cell: (l) => (
         <span className="text-sm text-muted">
-          {l.repaymentKind === "fixed_percent" ? `${l.installmentPercent}% of loan` : ""}
+          {l.repaymentKind === "fixed_percent" ? `${l.installmentPercent}% of loan ` : ""}
           <Money value={l.installmentAmount ?? (l.principal * (l.installmentPercent ?? 0)) / 100} compact />
         </span>
       ),
@@ -84,9 +92,17 @@ export function LoansClient({
       key: "status",
       header: "Status",
       align: "center",
-      cell: (l) => <Badge tone={l.status === "cleared" ? "positive" : "info"}>{l.status}</Badge>,
+      cell: (l) => (
+        <Badge tone={l.status === "cleared" ? "positive" : l.status === "cancelled" ? "neutral" : "info"}>
+          {l.status}
+        </Badge>
+      ),
     },
   ];
+
+  const drillRows = drill === "active" || drill === "outstanding" ? active : loans;
+  const drillTitle =
+    drill === "active" ? "Active loans" : drill === "outstanding" ? "Outstanding" : "Total lent";
 
   return (
     <>
@@ -104,9 +120,14 @@ export function LoansClient({
       />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard label="Active loans" value={String(active.length)} icon={<HandCoins className="h-4.5 w-4.5" />} />
-        <StatCard label="Outstanding" value={<Money value={outstanding} compact />} />
-        <StatCard label="Total lent" value={<Money value={lent} compact />} />
+        <StatCard
+          label="Active loans"
+          value={String(active.length)}
+          icon={<HandCoins className="h-4.5 w-4.5" />}
+          onClick={() => setDrill("active")}
+        />
+        <StatCard label="Outstanding" value={<Money value={outstanding} compact />} onClick={() => setDrill("outstanding")} />
+        <StatCard label="Total lent" value={<Money value={lent} compact />} onClick={() => setDrill("lent")} />
       </div>
 
       <Card className="mt-4 overflow-hidden">
@@ -127,7 +148,9 @@ export function LoansClient({
             <Card interactive className="p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="min-w-0 truncate font-medium text-foreground">{l.employeeName}</p>
-                <Badge tone={l.status === "cleared" ? "positive" : "info"}>{l.status}</Badge>
+                <Badge tone={l.status === "cleared" ? "positive" : l.status === "cancelled" ? "neutral" : "info"}>
+                  {l.status}
+                </Badge>
               </div>
               <div className="mt-2">
                 <Bar value={l.principal - l.outstanding} max={l.principal || 1} />
@@ -147,7 +170,34 @@ export function LoansClient({
         subtitle={detail?.employeeName ?? ""}
         width={520}
       >
-        {detail ? <LoanSchedule loan={detail} canManage={canManage} onDone={() => setDetail(null)} /> : null}
+        {detail ? (
+          <LoanSchedule key={detail.id} loan={detail} canManage={canManage} onDone={() => setDetail(null)} />
+        ) : null}
+      </Sheet>
+
+      {/* Card drill-downs */}
+      <Sheet
+        open={!!drill}
+        onClose={() => setDrill(null)}
+        title={drillTitle}
+        subtitle={`${drillRows.length} loan${drillRows.length === 1 ? "" : "s"}`}
+        width={480}
+      >
+        <div>
+          {drillRows.map((l) => (
+            <BreakdownRow
+              key={l.id}
+              label={l.employeeName}
+              sub={`${l.employeeCode ?? "—"} · ${l.status}`}
+              value={<Money value={drill === "lent" ? l.principal : l.outstanding} />}
+            />
+          ))}
+          <BreakdownRow
+            label="Total"
+            value={<Money value={drill === "lent" ? lent : outstanding} />}
+            emphasis
+          />
+        </div>
       </Sheet>
 
       <Sheet open={addOpen} onClose={() => setAddOpen(false)} title="Log approved loan" subtitle="Auto-scheduled" width={520}>
@@ -161,6 +211,15 @@ function LoanSchedule({ loan, canManage, onDone }: { loan: LoanRow; canManage: b
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const perMonthNow = loan.installmentAmount ?? (loan.principal * (loan.installmentPercent ?? 0)) / 100;
+  const [installment, setInstallment] = useState(
+    loan.repaymentKind === "fixed_percent" ? String(loan.installmentPercent ?? "") : String(loan.installmentAmount ?? ""),
+  );
+  const [note, setNote] = useState(loan.note ?? "");
 
   async function markPaid(inst: LoanInstallment) {
     setError(null);
@@ -175,17 +234,130 @@ function LoanSchedule({ loan, canManage, onDone }: { loan: LoanRow; canManage: b
     onDone();
   }
 
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+    const n = Number(installment) || 0;
+    const current =
+      loan.repaymentKind === "fixed_percent" ? loan.installmentPercent ?? 0 : loan.installmentAmount ?? 0;
+    // Only send the size when it actually changed (and only for an active loan) —
+    // otherwise this is a note-only edit and the schedule is left alone.
+    const sizeChanged = loan.status === "active" && n > 0 && Math.abs(n - current) > 1e-9;
+    const res = await updateLoanAction(loan.id, {
+      note: note || null,
+      ...(sizeChanged
+        ? loan.repaymentKind === "fixed_percent"
+          ? { installmentPercent: n }
+          : { installmentAmount: n }
+        : {}),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      setError(res.error ?? "Something went wrong.");
+      return;
+    }
+    router.refresh();
+    onDone();
+  }
+
+  async function doCancel() {
+    setError(null);
+    setSaving(true);
+    const res = await cancelLoanAction(loan.id);
+    setSaving(false);
+    if (!res.ok) {
+      setError(res.error ?? "Something went wrong.");
+      return;
+    }
+    router.refresh();
+    onDone();
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-surface-muted/50 p-3">
         <BreakdownRow label="Loan amount" value={<Money value={loan.principal} />} />
+        <BreakdownRow
+          label="Per month"
+          sub={loan.repaymentKind === "fixed_percent" ? `${loan.installmentPercent}% of loan` : "fixed amount"}
+          value={<Money value={perMonthNow} />}
+        />
+        <BreakdownRow label="Status" value={<Badge tone={loan.status === "cleared" ? "positive" : loan.status === "cancelled" ? "neutral" : "info"}>{loan.status}</Badge>} />
+        {loan.note ? <BreakdownRow label="Note" value={<span className="max-w-56 text-right text-sm">{loan.note}</span>} /> : null}
         <BreakdownRow label="Outstanding" value={<Money value={loan.outstanding} />} emphasis />
       </div>
+
       {error ? (
         <div role="alert" className="rounded-lg border border-negative/30 bg-negative-soft px-3 py-2 text-sm text-negative">
           {error}
         </div>
       ) : null}
+
+      {canManage && editing ? (
+        <form onSubmit={saveEdit} className="space-y-4 rounded-xl border border-border p-3">
+          {loan.status === "active" ? (
+            <Field
+              label={loan.repaymentKind === "fixed_percent" ? "Percent of loan / month" : "Installment (PKR)"}
+              hint="Applies to the remaining schedule only — paid installments stay as they are."
+              required
+            >
+              <Input
+                type="number"
+                min={loan.repaymentKind === "fixed_percent" ? 0.1 : 1}
+                step={loan.repaymentKind === "fixed_percent" ? 0.1 : 1}
+                value={installment}
+                onChange={(e) => setInstallment(e.target.value)}
+                required
+              />
+            </Field>
+          ) : null}
+          <Field label="Note">
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
+          </Field>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+
+      {canManage && confirmCancel ? (
+        <div className="rounded-xl border border-negative/30 bg-negative-soft p-3">
+          <p className="text-sm font-medium text-negative">Cancel this loan?</p>
+          <p className="mt-0.5 text-xs text-negative/80">
+            The remaining scheduled installments stop being deducted. Paid installments and their approvals are kept.
+          </p>
+          <div className="mt-2.5 flex items-center gap-2">
+            <Button size="sm" variant="danger" disabled={saving} onClick={doCancel}>
+              {saving ? "Cancelling…" : "Yes, cancel loan"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmCancel(false)}>
+              Keep it
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {canManage && !editing && !confirmCancel ? (
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setEditing(true)}>
+            <Pencil className="h-4 w-4" />
+            {loan.status === "active" ? "Edit repayment" : "Edit note"}
+          </Button>
+          {loan.status === "active" ? (
+            <Button variant="ghost" className="text-negative hover:text-negative" onClick={() => setConfirmCancel(true)}>
+              <Ban className="h-4 w-4" />
+              Cancel loan
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div>
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-subtle">Installments</p>
         <div className="divide-y divide-border">
@@ -200,7 +372,7 @@ function LoanSchedule({ loan, canManage, onDone }: { loan: LoanRow; canManage: b
                   <Money value={inst.amount} />
                 </span>
                 <Badge tone={INSTALLMENT_TONE[inst.status] ?? "neutral"}>{inst.status.replace("_", " ")}</Badge>
-                {canManage && inst.status === "scheduled" ? (
+                {canManage && loan.status === "active" && inst.status === "scheduled" ? (
                   <Button size="sm" variant="outline" disabled={busy === inst.id} onClick={() => markPaid(inst)}>
                     {busy === inst.id ? "…" : "Mark paid"}
                   </Button>

@@ -28,5 +28,5 @@ export default async function IncrementsPage() {
   ]);
   const canManage = session?.role === "super_admin" || session?.role === "hr";
 
-  return <IncrementsClient increments={increments} employees={employees} canManage={canManage} />;
+  return <IncrementsClient increments={increments} employees={employees.filter((o) => !o.leftOn)} canManage={canManage} />;
 }

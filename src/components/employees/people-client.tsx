@@ -2,9 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CheckCircle2, Search, UserPlus, Users } from "lucide-react";
+import { Banknote, Building2, CheckCircle2, Pencil, Search, UserPlus, Users } from "lucide-react";
 import type { DbEmployee, EntityRow, TeamRow } from "@/lib/db/employees";
-import { createEmployeeAction } from "@/app/(app)/employees/actions";
+import {
+  correctSalaryAction,
+  createEmployeeAction,
+  updateEmployeeAction,
+} from "@/app/(app)/employees/actions";
 import { formatNumber } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
@@ -13,7 +17,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Money } from "@/components/ui/money";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { BreakdownRow } from "@/components/ui/sheet";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/states";
@@ -24,6 +28,15 @@ const SUBTYPE_LABEL: Record<string, string> = {
   marketing: "Marketing",
   business_development: "Business Development",
 };
+
+/** Compact entity badge label — the shared entity renders as "JU+PDC". */
+function entityLabel(entityId: string | null): string {
+  if (!entityId) return "—";
+  return entityId === "JU_PDC" ? "JU+PDC" : entityId;
+}
+
+type StatDrill = "active" | "companies" | "avg" | null;
+type ProfileMode = "view" | "edit" | "salary";
 
 export function PeopleClient({
   employees,
@@ -41,6 +54,12 @@ export function PeopleClient({
   const [team, setTeam] = useState("all");
   const [status, setStatus] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
+  const [drill, setDrill] = useState<StatDrill>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [profileMode, setProfileMode] = useState<ProfileMode>("view");
+
+  // Derive from props so the sheet shows fresh data after router.refresh().
+  const selected = selectedId ? employees.find((e) => e.id === selectedId) ?? null : null;
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -87,7 +106,7 @@ export function PeopleClient({
       key: "entity",
       header: "Company",
       hideOnMobile: true,
-      cell: (e) => (e.entityId ? <Badge tone="brand">{e.entityId}</Badge> : <span className="text-subtle">—</span>),
+      cell: (e) => (e.entityId ? <Badge tone="brand">{entityLabel(e.entityId)}</Badge> : <span className="text-subtle">—</span>),
     },
     {
       key: "team",
@@ -170,10 +189,21 @@ export function PeopleClient({
           value={formatNumber(active.length)}
           hint={`${employees.length} total`}
           icon={<Users className="h-4.5 w-4.5" />}
+          onClick={() => setDrill("active")}
         />
-        <StatCard label="Companies" value={String(entities.length)} icon={<Building2 className="h-4.5 w-4.5" />} />
+        <StatCard
+          label="Companies"
+          value={String(entities.length)}
+          icon={<Building2 className="h-4.5 w-4.5" />}
+          onClick={() => setDrill("companies")}
+        />
         <StatCard label="Showing" value={formatNumber(rows.length)} hint="after filters" />
-        <StatCard label="Avg salary" value={<Money value={avg} compact />} hint="active employees" />
+        <StatCard
+          label="Avg salary"
+          value={<Money value={avg} compact />}
+          hint="active employees"
+          onClick={() => setDrill("avg")}
+        />
       </div>
 
       <Card className="mt-4 overflow-hidden">
@@ -181,6 +211,10 @@ export function PeopleClient({
           columns={columns}
           rows={rows}
           getRowKey={(e) => e.id}
+          onRowClick={(e) => {
+            setSelectedId(e.id);
+            setProfileMode("view");
+          }}
           dense
           emptyState={
             <EmptyState
@@ -202,7 +236,7 @@ export function PeopleClient({
                 <StatusBadge status={e.status} />
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <Badge tone="brand">{e.entityId ?? "—"}</Badge>
+                <Badge tone="brand">{entityLabel(e.entityId)}</Badge>
                 <span className="text-sm font-semibold tabular-nums">
                   <Money value={e.salary} compact />
                 </span>
@@ -221,7 +255,474 @@ export function PeopleClient({
       >
         <OnboardingForm entities={entities} teams={teams} onClose={() => setAddOpen(false)} />
       </Sheet>
+
+      {/* Employee profile drill (row click) */}
+      <Sheet
+        open={!!selected}
+        onClose={() => setSelectedId(null)}
+        title={selected?.name ?? ""}
+        subtitle={
+          selected
+            ? profileMode === "edit"
+              ? "Edit details"
+              : profileMode === "salary"
+                ? "Correct salary"
+                : `${selected.employeeCode ?? "—"} · ${selected.designation}`
+            : undefined
+        }
+        width={560}
+      >
+        {selected ? (
+          profileMode === "edit" ? (
+            <EditEmployeeForm
+              employee={selected}
+              entities={entities}
+              teams={teams}
+              onDone={() => setProfileMode("view")}
+            />
+          ) : profileMode === "salary" ? (
+            <CorrectSalaryForm employee={selected} onDone={() => setProfileMode("view")} />
+          ) : (
+            <EmployeeProfile
+              employee={selected}
+              canManage={canManage}
+              onEdit={() => setProfileMode("edit")}
+              onCorrectSalary={() => setProfileMode("salary")}
+            />
+          )
+        ) : null}
+      </Sheet>
+
+      {/* StatCard drilldowns */}
+      <Sheet
+        open={!!drill}
+        onClose={() => setDrill(null)}
+        title={
+          drill === "active"
+            ? "Active employees"
+            : drill === "companies"
+              ? "Companies"
+              : drill === "avg"
+                ? "Average salary"
+                : ""
+        }
+        subtitle={
+          drill === "active"
+            ? `${active.length} active of ${employees.length} total`
+            : drill === "companies"
+              ? "Active headcount by entity"
+              : drill === "avg"
+                ? "Active employees, highest first"
+                : undefined
+        }
+      >
+        {drill === "active" ? (
+          <div className="divide-y divide-border/70">
+            {active.map((e) => (
+              <div key={e.id} className="flex items-center gap-3 py-2.5">
+                <Avatar name={e.name} size={32} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">{e.name}</p>
+                  <p className="truncate text-xs text-subtle">{e.teamName ?? "—"}</p>
+                </div>
+                <Badge tone="brand">{entityLabel(e.entityId)}</Badge>
+              </div>
+            ))}
+          </div>
+        ) : drill === "companies" ? (
+          <div>
+            {entities.map((en) => (
+              <BreakdownRow
+                key={en.id}
+                label={en.name}
+                sub={en.code}
+                value={
+                  <span className="font-semibold">
+                    {formatNumber(active.filter((e) => e.entityId === en.id).length)}
+                  </span>
+                }
+              />
+            ))}
+            <BreakdownRow label="Total active" value={<span>{formatNumber(active.length)}</span>} emphasis />
+          </div>
+        ) : drill === "avg" ? (
+          <div>
+            {[...active]
+              .sort((a, b) => b.salary - a.salary)
+              .map((e) => (
+                <BreakdownRow key={e.id} label={e.name} sub={e.designation} value={<Money value={e.salary} />} />
+              ))}
+            <BreakdownRow
+              label={`Average · ${active.length} active`}
+              value={<Money value={avg} />}
+              emphasis
+            />
+          </div>
+        ) : null}
+      </Sheet>
     </>
+  );
+}
+
+// =============================================================================
+// Employee profile (live data the list already has) + canManage actions.
+// =============================================================================
+function EmployeeProfile({
+  employee: e,
+  canManage,
+  onEdit,
+  onCorrectSalary,
+}: {
+  employee: DbEmployee;
+  canManage: boolean;
+  onEdit: () => void;
+  onCorrectSalary: () => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <Avatar name={e.name} size={44} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold text-foreground">{e.name}</p>
+          <p className="truncate text-sm text-muted">{e.email}</p>
+        </div>
+        <StatusBadge status={e.status} />
+      </div>
+
+      {canManage ? (
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5" />
+            Edit details
+          </Button>
+          <Button size="sm" variant="outline" onClick={onCorrectSalary}>
+            <Banknote className="h-3.5 w-3.5" />
+            Correct salary
+          </Button>
+        </div>
+      ) : null}
+
+      <div>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-subtle">Employment</p>
+        <BreakdownRow label="Company" value={<Badge tone="brand">{entityLabel(e.entityId)}</Badge>} sub={e.entityName ?? undefined} />
+        <BreakdownRow
+          label="Team"
+          value={
+            <span className="text-sm text-muted">
+              {e.teamName ?? "—"}
+              {e.juSalesSubtype ? ` · ${SUBTYPE_LABEL[e.juSalesSubtype] ?? ""}` : ""}
+            </span>
+          }
+        />
+        <BreakdownRow label="Joined" value={<span className="text-sm">{e.joinedOn}</span>} />
+        {e.probationEnd ? (
+          <BreakdownRow label="Probation ends" value={<span className="text-sm">{e.probationEnd}</span>} />
+        ) : null}
+        {e.lastWorkingDay ? (
+          <BreakdownRow label="Last working day" value={<span className="text-sm">{e.lastWorkingDay}</span>} />
+        ) : null}
+      </div>
+
+      <div className="rounded-xl border border-border bg-surface-muted/50 p-3">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-subtle">Monthly salary</p>
+        <BreakdownRow label="Basic" value={<Money value={e.basic} />} />
+        <BreakdownRow label="Medical" value={<Money value={e.medical} />} />
+        {e.travel > 0 ? <BreakdownRow label="Travel" value={<Money value={e.travel} />} /> : null}
+        <BreakdownRow label="Gross" value={<Money value={e.salary} />} emphasis />
+      </div>
+
+      <div>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-subtle">Bank details</p>
+        <BreakdownRow label="Bank" value={<span className="text-sm">{e.bank ?? "—"}</span>} />
+        <BreakdownRow
+          label="Account / IBAN"
+          value={<span className="font-mono text-xs">{e.account ?? "—"}</span>}
+        />
+        <BreakdownRow label="Account title" value={<span className="text-sm">{e.accountTitle ?? "—"}</span>} />
+      </div>
+
+      <div>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-subtle">Identity</p>
+        <BreakdownRow label="CNIC" value={<span className="font-mono text-xs">{e.cnic ?? "—"}</span>} />
+        <BreakdownRow label="City" value={<span className="text-sm">{e.city ?? "—"}</span>} />
+      </div>
+
+      {e.note ? <p className="rounded-lg bg-surface-muted/50 px-3 py-2 text-xs text-muted">{e.note}</p> : null}
+    </div>
+  );
+}
+
+// =============================================================================
+// Edit details — the onboarding fields, prefilled, minus salary (use "Correct
+// salary" or Increments for pay changes).
+// =============================================================================
+function EditEmployeeForm({
+  employee,
+  entities,
+  teams,
+  onDone,
+}: {
+  employee: DbEmployee;
+  entities: EntityRow[];
+  teams: TeamRow[];
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [f, setF] = useState({
+    name: employee.name,
+    email: employee.email,
+    designation: employee.designation,
+    cnic: employee.cnic ?? "",
+    city: employee.city ?? "",
+    taxAddress: employee.taxAddress ?? "",
+    bank: employee.bank ?? "",
+    account: employee.account ?? "",
+    accountTitle: employee.accountTitle ?? "",
+    joinedOn: employee.joinedOn,
+    note: employee.note ?? "",
+  });
+  const [entityId, setEntityId] = useState(employee.entityId ?? entities[0]?.id ?? "");
+  const [teamId, setTeamId] = useState(employee.teamId);
+  const [subtype, setSubtype] = useState(employee.juSalesSubtype ?? "sales_team");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [ok, setOk] = useState(false);
+
+  const up = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
+
+  const selectedTeam = teams.find((t) => t.id === teamId);
+  const showSubtype = entityId === "JU" && !!selectedTeam?.isSales;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    const res = await updateEmployeeAction(employee.id, {
+      name: f.name,
+      email: f.email,
+      designation: f.designation,
+      entityId,
+      teamId,
+      juSalesSubtype: showSubtype ? subtype : null,
+      joinedOn: f.joinedOn,
+      cnic: f.cnic || null,
+      city: f.city || null,
+      taxAddress: f.taxAddress || null,
+      bank: f.bank || null,
+      account: f.account || null,
+      accountTitle: f.accountTitle || null,
+      note: f.note || null,
+    });
+    setSubmitting(false);
+    if (!res.ok) {
+      setError(res.error ?? "Something went wrong.");
+      return;
+    }
+    setOk(true);
+    router.refresh();
+    setTimeout(onDone, 900);
+  }
+
+  if (ok) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <CheckCircle2 className="h-12 w-12 text-positive" />
+        <p className="mt-3 text-base font-semibold text-foreground">Details updated</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      {error ? (
+        <div role="alert" className="rounded-lg border border-negative/30 bg-negative-soft px-3 py-2 text-sm text-negative">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Full name" required>
+          <Input value={f.name} onChange={up("name")} required />
+        </Field>
+        <Field label="Email" required>
+          <Input type="email" value={f.email} onChange={up("email")} required />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Company" required>
+          <Select value={entityId} onChange={(e) => setEntityId(e.target.value)}>
+            {entities.map((en) => (
+              <option key={en.id} value={en.id}>
+                {en.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Team" required>
+          <Select value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+
+      {showSubtype ? (
+        <Field label="Sub-type (JU sales / marketing / BD)" required>
+          <Select value={subtype} onChange={(e) => setSubtype(e.target.value)}>
+            <option value="sales_team">Sales Team</option>
+            <option value="marketing">Marketing</option>
+            <option value="business_development">Business Development</option>
+          </Select>
+        </Field>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Designation" required>
+          <Input value={f.designation} onChange={up("designation")} required />
+        </Field>
+        <Field label="Joining date" required>
+          <Input type="date" value={f.joinedOn} onChange={up("joinedOn")} required />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="CNIC" hint="Format 35202-1234567-1">
+          <Input value={f.cnic} onChange={up("cnic")} placeholder="35202-1234567-1" />
+        </Field>
+        <Field label="City">
+          <Input value={f.city} onChange={up("city")} placeholder="Lahore" />
+        </Field>
+      </div>
+
+      <Field label="Tax address" hint="Defaults to the city">
+        <Input value={f.taxAddress} onChange={up("taxAddress")} placeholder={f.city || "Tax address"} />
+      </Field>
+
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-subtle">Bank details</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Bank">
+            <Input value={f.bank} onChange={up("bank")} placeholder="e.g. Bank Alfalah" />
+          </Field>
+          <Field label="Account / IBAN">
+            <Input value={f.account} onChange={up("account")} placeholder="PK.. / account no." />
+          </Field>
+        </div>
+        <Field label="Account title" hint="Defaults to the employee name" className="mt-4">
+          <Input value={f.accountTitle} onChange={up("accountTitle")} placeholder={f.name || "Account holder"} />
+        </Field>
+      </div>
+
+      <Field label="Note">
+        <Textarea value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Optional" />
+      </Field>
+
+      <p className="text-xs text-subtle">
+        Salary is not edited here — use &ldquo;Correct salary&rdquo; for a wrong entry or Increments for a raise.
+      </p>
+
+      <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+        <Button type="button" variant="ghost" onClick={onDone}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={submitting}>
+          {submitting ? "Saving…" : "Save changes"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// =============================================================================
+// Correct salary — fixes a wrongly entered salary IN PLACE on the open
+// salary_structures row (allows decreases). Raises belong in Increments.
+// =============================================================================
+function CorrectSalaryForm({ employee, onDone }: { employee: DbEmployee; onDone: () => void }) {
+  const router = useRouter();
+  const [salary, setSalary] = useState(employee.salary ? String(employee.salary) : "");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [ok, setOk] = useState(false);
+
+  const d = Number(salary) || 0;
+  const medical = (d * 10) / 110;
+  const basic = d - medical;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    const res = await correctSalaryAction(employee.id, d);
+    setSubmitting(false);
+    if (!res.ok) {
+      setError(res.error ?? "Something went wrong.");
+      return;
+    }
+    setOk(true);
+    router.refresh();
+    setTimeout(onDone, 900);
+  }
+
+  if (ok) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <CheckCircle2 className="h-12 w-12 text-positive" />
+        <p className="mt-3 text-base font-semibold text-foreground">Salary corrected</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <p className="rounded-lg bg-surface-muted/50 px-3 py-2 text-xs text-muted">
+        Use this to fix a wrongly entered salary. For a raise, use Increments.
+      </p>
+
+      {error ? (
+        <div role="alert" className="rounded-lg border border-negative/30 bg-negative-soft px-3 py-2 text-sm text-negative">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="rounded-xl border border-border bg-surface-muted/50 p-3">
+        <BreakdownRow label="Current salary" value={<Money value={employee.salary} />} />
+      </div>
+
+      <Field label="New monthly salary (PKR)" required>
+        <Input
+          type="number"
+          min={1}
+          value={salary}
+          onChange={(e) => setSalary(e.target.value)}
+          placeholder="0"
+          required
+        />
+      </Field>
+
+      {d > 0 ? (
+        <div className="rounded-xl border border-border bg-surface-muted/50 p-3">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-subtle">
+            Component breakdown
+          </p>
+          <BreakdownRow label="Basic" value={<Money value={basic} />} />
+          <BreakdownRow label="Medical (10/110)" value={<Money value={medical} />} />
+          <BreakdownRow label="Gross" value={<Money value={d} />} emphasis />
+        </div>
+      ) : null}
+
+      <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+        <Button type="button" variant="ghost" onClick={onDone}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={submitting || d <= 0}>
+          {submitting ? "Saving…" : "Correct salary"}
+        </Button>
+      </div>
+    </form>
   );
 }
 

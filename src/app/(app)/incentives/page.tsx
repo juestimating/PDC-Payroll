@@ -13,7 +13,7 @@ export default async function IncentivesPage() {
       <>
         <PageHeader
           title="Sales Incentives"
-          description="FX commission on sales plus discretionary bonus, with KPI-gated payout."
+          description="FX commission on sales plus manual New Sales / Recurring / Sales Bonus cells, with KPI-gated payout."
         />
         <EmptyState
           icon={<Trophy className="h-5 w-5" />}

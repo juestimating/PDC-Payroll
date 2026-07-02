@@ -3,6 +3,8 @@
 // owner-chosen EARNED-salary WHT method: tax is computed on the days-worked
 // (post-leave / post-exit) salary, medical excluded. Deductions (advance + loan
 // installments) reduce net; net is floored at 0.
+// Roster is MONTH-AWARE: active employees always; leavers stay listed through
+// their exit month (final month prorated) and drop off in later months.
 // =============================================================================
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -48,6 +50,8 @@ export interface PayrollRow {
   leaveDays: number;
   net: number;
   onHold: boolean;
+  lastWorkingDay: string | null; // "YYYY-MM-DD" once offboarded
+  exitReason: string | null;
 }
 
 function workedDaysFor(month: string, leaveDays: number, lastWorkingDay: string | null): number {
@@ -55,20 +59,20 @@ function workedDaysFor(month: string, leaveDays: number, lastWorkingDay: string 
   if (lastWorkingDay) {
     const [ly, lm, ld] = lastWorkingDay.split("-").map(Number);
     const [y, m] = month.split("-").map(Number);
-    if (ly < y || (ly === y && lm < m)) return 0; // left before this month → no pay
+    if (ly < y || (ly === y && lm < m)) return 0; // left before this month → no pay (safety net; roster filter excludes these)
     if (ly === y && lm === m) worked = Math.min(worked, Math.min(DAYS_IN_MONTH, ld)); // prorate to last day
   }
   return worked;
 }
 
-/** Compute payroll rows for every active employee for a month. */
+/** Compute payroll rows for a month: everyone active, plus leavers whose exit month is this month or later. */
 export async function computePayrollForMonth(month: string): Promise<PayrollRow[]> {
   const supabase = await createSupabaseServerClient();
   const [{ data: emps, error }, { data: structs }, { data: advances }, { data: leaves }, { data: insts }] =
     await Promise.all([
       supabase
         .from("employees")
-        .select("id, name, employee_code, entity_id, designation, cnic, status, last_working_day, teams(name)")
+        .select("id, name, employee_code, entity_id, designation, cnic, status, last_working_day, exit_reason, teams(name)")
         .order("employee_code"),
       supabase.from("salary_structures").select("employee_id, salary, basic, medical, travel").is("effective_to", null),
       supabase.from("advances").select("employee_id, amount").eq("month", month),
@@ -93,7 +97,11 @@ export async function computePayrollForMonth(month: string): Promise<PayrollRow[
   }
 
   return (emps ?? [])
-    .filter((e) => e.status === "active")
+    // Month-aware roster: active always; a leaver stays in the payroll of their
+    // exit month (and any earlier month) but is unlisted from later months.
+    // last_working_day is "YYYY-MM-DD" from PostgREST, so a string compare of
+    // its "YYYY-MM" prefix against the month key is safe.
+    .filter((e) => e.status === "active" || (!!e.last_working_day && String(e.last_working_day).slice(0, 7) >= month))
     .map((e: any) => {
       const team = (Array.isArray(e.teams) ? e.teams[0] : e.teams) as { name: string } | null;
       const D = salaryBy.get(e.id) ?? 0;
@@ -126,6 +134,8 @@ export async function computePayrollForMonth(month: string): Promise<PayrollRow[
         leaveDays,
         net,
         onHold: workedDays <= 0,
+        lastWorkingDay: (e.last_working_day as string | null) ?? null,
+        exitReason: (e.exit_reason as string | null) ?? null,
       };
     });
 }

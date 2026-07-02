@@ -33,6 +33,6 @@ export default async function OffboardingPage() {
   const canManage = session?.role === "super_admin" || session?.role === "hr";
 
   return (
-    <OffboardingClient departures={departures} employeeOptions={employeeOptions} canManage={canManage} />
+    <OffboardingClient departures={departures} employeeOptions={employeeOptions.filter((o) => !o.leftOn)} canManage={canManage} />
   );
 }

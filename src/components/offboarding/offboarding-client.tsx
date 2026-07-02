@@ -184,7 +184,10 @@ function MarkAsLeftForm({
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <CheckCircle2 className="h-12 w-12 text-positive" />
         <p className="mt-3 text-base font-semibold text-foreground">Marked as left</p>
-        <p className="mt-1 text-sm text-muted">Their final month will be prorated to that date.</p>
+        <p className="mt-1 text-sm text-muted">
+          They stay on payroll through their exit month, prorated to that date, and drop off from
+          the next month.
+        </p>
       </div>
     );
   }
@@ -240,7 +243,8 @@ function MarkAsLeftForm({
       </Field>
 
       <p className="rounded-lg bg-surface-muted px-3 py-2 text-xs text-muted">
-        No gratuity or end-of-service is paid. The final month is prorated to the last working day.
+        No gratuity or end-of-service is paid. They remain on the exit month&apos;s payroll, prorated
+        to the last working day, and are unlisted from later months.
       </p>
 
       <div className="flex items-center justify-end gap-2 border-t border-border pt-4">

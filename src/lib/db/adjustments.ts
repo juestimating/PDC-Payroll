@@ -40,6 +40,8 @@ export interface EmployeeOption {
   name: string;
   entityId: string | null;
   salary: number;
+  /** Set for leavers (last working day) — final-month adjustments stay loggable. */
+  leftOn: string | null;
 }
 
 /** All advances, joined to employee (name/code) + entity, newest month first. */
@@ -117,16 +119,22 @@ export async function listUnpaidLeaves(): Promise<UnpaidLeaveRow[]> {
   return rows;
 }
 
-/** Active employees with their open salary, for the advance/leave pickers. */
+/**
+ * Employees for the advance/leave/incentive pickers: everyone active, plus
+ * leavers (labelled "(left …)") so their final-month entries can still be
+ * logged or corrected. Callers that must not see leavers (offboarding,
+ * increments, loans) filter on !leftOn.
+ */
 export async function listEmployeeOptions(): Promise<EmployeeOption[]> {
   const employees = await listEmployees();
   return employees
-    .filter((e) => e.status === "active")
+    .filter((e) => e.status === "active" || !!e.lastWorkingDay)
     .map((e) => ({
       id: e.id,
       code: e.employeeCode,
-      name: e.name,
+      name: e.status === "active" ? e.name : `${e.name} (left ${e.lastWorkingDay})`,
       entityId: e.entityId,
       salary: e.salary,
+      leftOn: e.status === "active" ? null : e.lastWorkingDay,
     }));
 }

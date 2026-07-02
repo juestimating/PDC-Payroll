@@ -13,6 +13,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export { listEmployeeOptions } from "@/lib/db/adjustments";
 export type { EmployeeOption } from "@/lib/db/adjustments";
 
+export interface IncrementComponentSplit {
+  basic: number;
+  medical: number;
+  travel: number;
+  other: number;
+}
+
 export interface IncrementRow {
   id: string;
   employeeId: string | null;
@@ -25,6 +32,8 @@ export interface IncrementRow {
   newSalary: number;
   reason: string | null;
   byUser: string | null;
+  /** The 65/10/10/15 split captured when the increment was applied (if stored). */
+  componentSplit: IncrementComponentSplit | null;
 }
 
 /** All increments, joined to employee (name/code), newest first. */
@@ -32,7 +41,9 @@ export async function listIncrements(): Promise<IncrementRow[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("increments")
-    .select("id, employee_id, date, kind, percent, old_salary, new_salary, reason, by_user, employees(name, employee_code)")
+    .select(
+      "id, employee_id, date, kind, percent, old_salary, new_salary, reason, by_user, component_split, employees(name, employee_code)",
+    )
     .order("date", { ascending: false });
   if (error) throw error;
 
@@ -40,6 +51,16 @@ export async function listIncrements(): Promise<IncrementRow[]> {
     const emp = (Array.isArray(r.employees) ? r.employees[0] : r.employees) as
       | { name: string; employee_code: string | null }
       | null;
+    const rawSplit = r.component_split as Record<string, unknown> | null;
+    const componentSplit: IncrementComponentSplit | null =
+      rawSplit && typeof rawSplit === "object"
+        ? {
+            basic: Number(rawSplit.basic) || 0,
+            medical: Number(rawSplit.medical) || 0,
+            travel: Number(rawSplit.travel) || 0,
+            other: Number(rawSplit.other) || 0,
+          }
+        : null;
     return {
       id: r.id as string,
       employeeId: r.employee_id as string | null,
@@ -52,6 +73,7 @@ export async function listIncrements(): Promise<IncrementRow[]> {
       newSalary: Number(r.new_salary) || 0,
       reason: (r.reason as string) ?? null,
       byUser: (r.by_user as string) ?? null,
+      componentSplit,
     };
   });
 }

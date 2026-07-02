@@ -19,7 +19,8 @@ export interface ActionResult {
 /**
  * Mark an employee as left: sets their last working day + exit metadata and
  * flips status to inactive. The payroll engine prorates the final month to the
- * last working day — there is no gratuity / end-of-service settlement.
+ * last working day — there is no gratuity / end-of-service settlement. They
+ * stay on payroll through their exit month and are unlisted from later months.
  * RLS restricts writes to super_admin / hr.
  */
 export async function markAsLeftAction(input: MarkAsLeftInput): Promise<ActionResult> {
@@ -50,5 +51,7 @@ export async function markAsLeftAction(input: MarkAsLeftInput): Promise<ActionRe
   }
 
   revalidatePath("/offboarding");
+  revalidatePath("/payroll");
+  revalidatePath("/tax");
   return { ok: true };
 }

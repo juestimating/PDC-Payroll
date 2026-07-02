@@ -7,9 +7,11 @@ import { Timer } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_MONTH = "2026-05";
-
-export default async function OvertimePage() {
+export default async function OvertimePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>;
+}) {
   if (!hasSupabaseEnv()) {
     return (
       <>
@@ -23,8 +25,12 @@ export default async function OvertimePage() {
     );
   }
 
+  const sp = await searchParams;
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const month = /^\d{4}-\d{2}$/.test(sp.month ?? "") ? sp.month! : currentMonth;
+
   const [overtime, employees, session] = await Promise.all([
-    listOvertime(DEFAULT_MONTH),
+    listOvertime(month),
     listEstimationEmployees(),
     getSessionProfile(),
   ]);
@@ -35,7 +41,7 @@ export default async function OvertimePage() {
     <OvertimeClient
       overtime={overtime}
       employees={employees}
-      month={DEFAULT_MONTH}
+      month={month}
       canManage={canManage}
     />
   );

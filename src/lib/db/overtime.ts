@@ -16,6 +16,8 @@ export interface OvertimeRow {
   entityId: string | null;
   month: string;
   dayType: string;
+  /** The gross salary the rate was derived from when the entry was written. */
+  grossBasis: number;
   weekdayHours: number;
   weekendHours: number;
   totalHours: number;
@@ -40,7 +42,7 @@ export async function listOvertime(month: string): Promise<OvertimeRow[]> {
   const { data, error } = await supabase
     .from("overtime_details")
     .select(
-      "id, employee_id, entity_id, month, day_type, weekday_hours, weekend_hours, total_hours, multiplier, rate_per_hour, bonus, amount, sub_total, employees(name, employee_code, entity_id)",
+      "id, employee_id, entity_id, month, day_type, gross_basis, weekday_hours, weekend_hours, total_hours, multiplier, rate_per_hour, bonus, amount, sub_total, employees(name, employee_code, entity_id)",
     )
     .eq("month", month)
     .order("employee_id", { ascending: true });
@@ -58,6 +60,7 @@ export async function listOvertime(month: string): Promise<OvertimeRow[]> {
       entityId: (r.entity_id as string | null) ?? emp?.entity_id ?? null,
       month: (r.month as string) ?? "",
       dayType: (r.day_type as string) ?? "normal",
+      grossBasis: Number(r.gross_basis) || 0,
       weekdayHours: Number(r.weekday_hours) || 0,
       weekendHours: Number(r.weekend_hours) || 0,
       totalHours: Number(r.total_hours) || 0,

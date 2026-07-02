@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Plus, Timer } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, Timer, Trash2 } from "lucide-react";
 import type { OvertimeRow, EstimationEmployee } from "@/lib/db/overtime";
-import { createOvertimeAction } from "@/app/(app)/overtime/actions";
+import { createOvertimeAction, deleteOvertimeAction, updateOvertimeAction } from "@/app/(app)/overtime/actions";
 import { formatMonthKey, formatNumber } from "@/lib/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
@@ -25,6 +25,9 @@ const DAY_TYPES = [
   { value: "eid", label: "Eid", multiplier: 2.5 },
 ] as const;
 const MULTIPLIER_BY_TYPE: Record<string, number> = { normal: 1.5, govt: 2, eid: 2.5 };
+const DAY_TYPE_LABEL: Record<string, string> = { normal: "Normal day", govt: "Govt holiday", eid: "Eid" };
+
+type Drill = "entries" | "total" | null;
 
 export function OvertimeClient({
   overtime,
@@ -37,7 +40,10 @@ export function OvertimeClient({
   month: string;
   canManage: boolean;
 }) {
+  const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
+  const [detail, setDetail] = useState<OvertimeRow | null>(null);
+  const [drill, setDrill] = useState<Drill>(null);
   const total = overtime.reduce((s, r) => s + r.subTotal, 0);
 
   const columns: Column<OvertimeRow>[] = [
@@ -91,12 +97,23 @@ export function OvertimeClient({
         title="Overtime"
         description="Estimation team · rate = basic ÷ (22×8) · 1.5× normal / 2× govt / 2.5× Eid"
         actions={
-          canManage ? (
-            <Button onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Log overtime
-            </Button>
-          ) : undefined
+          <>
+            <Input
+              type="month"
+              value={month}
+              onChange={(e) => {
+                if (e.target.value) router.push(`/overtime?month=${e.target.value}`);
+              }}
+              className="w-40"
+              aria-label="Month"
+            />
+            {canManage ? (
+              <Button onClick={() => setAddOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Log overtime
+              </Button>
+            ) : null}
+          </>
         }
       />
 
@@ -106,8 +123,14 @@ export function OvertimeClient({
           value={String(overtime.length)}
           hint={formatMonthKey(month)}
           icon={<Timer className="h-4.5 w-4.5" />}
+          onClick={() => setDrill("entries")}
         />
-        <StatCard label="Total OT pay" value={<Money value={total} compact />} hint="flows into payroll" />
+        <StatCard
+          label="Total OT pay"
+          value={<Money value={total} compact />}
+          hint="flows into payroll"
+          onClick={() => setDrill("total")}
+        />
       </div>
 
       <Card className="mt-4 overflow-hidden">
@@ -115,6 +138,7 @@ export function OvertimeClient({
           columns={columns}
           rows={overtime}
           getRowKey={(r) => r.id}
+          onRowClick={(r) => setDetail(r)}
           dense
           emptyState={
             <EmptyState
@@ -128,7 +152,7 @@ export function OvertimeClient({
             />
           }
           mobileCard={(r) => (
-            <Card className="p-3">
+            <Card interactive className="p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate font-medium text-foreground">{r.employeeName}</p>
@@ -145,6 +169,40 @@ export function OvertimeClient({
         />
       </Card>
 
+      {/* Row drill-down: derivation + edit + delete */}
+      <Sheet
+        open={!!detail}
+        onClose={() => setDetail(null)}
+        title="Overtime detail"
+        subtitle={detail ? `${detail.employeeName} · ${formatMonthKey(detail.month)}` : ""}
+        width={480}
+      >
+        {detail ? (
+          <OvertimeDetail key={detail.id} row={detail} employees={employees} canManage={canManage} onClose={() => setDetail(null)} />
+        ) : null}
+      </Sheet>
+
+      {/* Card drill-downs */}
+      <Sheet
+        open={!!drill}
+        onClose={() => setDrill(null)}
+        title={drill === "total" ? "Total OT pay" : "Overtime entries"}
+        subtitle={formatMonthKey(month)}
+        width={480}
+      >
+        <div>
+          {overtime.map((r) => (
+            <BreakdownRow
+              key={r.id}
+              label={r.employeeName}
+              sub={`${formatNumber(r.totalHours)} hrs × ${r.multiplier}×`}
+              value={<Money value={r.subTotal} />}
+            />
+          ))}
+          <BreakdownRow label="Total" value={<Money value={total} />} emphasis />
+        </div>
+      </Sheet>
+
       <Sheet
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -155,6 +213,170 @@ export function OvertimeClient({
         <OvertimeForm employees={employees} month={month} onClose={() => setAddOpen(false)} />
       </Sheet>
     </>
+  );
+}
+
+function OvertimeDetail({
+  row,
+  employees,
+  canManage,
+  onClose,
+}: {
+  row: OvertimeRow;
+  employees: EstimationEmployee[];
+  canManage: boolean;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [weekdayHours, setWeekdayHours] = useState(String(row.weekdayHours));
+  const [weekendHours, setWeekendHours] = useState(String(row.weekendHours));
+  const [dayType, setDayType] = useState<"normal" | "govt" | "eid">(
+    row.dayType === "govt" || row.dayType === "eid" ? row.dayType : "normal",
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Live preview of the recompute the server will run (from the CURRENT open salary).
+  const preview = useMemo(() => {
+    const emp = employees.find((e) => e.id === row.employeeId);
+    const gross = emp?.salary || row.grossBasis;
+    const ratePerHour = gross ? (gross * OT_BASIC_FACTOR) / STANDARD_HOURS : 0;
+    const totalHours = (Number(weekdayHours) || 0) + (Number(weekendHours) || 0);
+    const multiplier = MULTIPLIER_BY_TYPE[dayType] ?? 1.5;
+    const amount = totalHours * ratePerHour * multiplier;
+    return { ratePerHour, totalHours, multiplier, amount: amount + row.bonus };
+  }, [employees, row, weekdayHours, weekendHours, dayType]);
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    const res = await updateOvertimeAction(row.id, {
+      weekdayHours: Number(weekdayHours) || 0,
+      weekendHours: Number(weekendHours) || 0,
+      dayType,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setError(res.error ?? "Something went wrong.");
+      return;
+    }
+    router.refresh();
+    onClose();
+  }
+
+  async function doDelete() {
+    setError(null);
+    setBusy(true);
+    const res = await deleteOvertimeAction(row.id);
+    setBusy(false);
+    if (!res.ok) {
+      setError(res.error ?? "Something went wrong.");
+      return;
+    }
+    router.refresh();
+    onClose();
+  }
+
+  return (
+    <div className="space-y-4">
+      {error ? (
+        <div role="alert" className="rounded-lg border border-negative/30 bg-negative-soft px-3 py-2 text-sm text-negative">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="rounded-xl border border-border bg-surface-muted/50 p-3">
+        <BreakdownRow label="Gross basis" sub="open salary when logged" value={<Money value={row.grossBasis} />} />
+        <BreakdownRow label="Rate / hour" sub="gross × 0.65 ÷ 176" value={<Money value={row.ratePerHour} />} />
+        <BreakdownRow label="Weekday hours" value={<span className="tabular-nums">{formatNumber(row.weekdayHours)}</span>} />
+        <BreakdownRow label="Weekend hours" value={<span className="tabular-nums">{formatNumber(row.weekendHours)}</span>} />
+        <BreakdownRow
+          label="Total hours"
+          sub={`${row.multiplier}× · ${DAY_TYPE_LABEL[row.dayType] ?? row.dayType}`}
+          value={<span className="tabular-nums">{formatNumber(row.totalHours)}</span>}
+        />
+        <BreakdownRow label="Overtime amount" sub="hours × rate × multiplier" value={<Money value={row.amount} />} />
+        {row.bonus > 0 ? <BreakdownRow label="Bonus" value={<Money value={row.bonus} />} /> : null}
+        <BreakdownRow label="Overtime pay" value={<Money value={row.subTotal} />} emphasis />
+      </div>
+
+      {canManage && editing ? (
+        <form onSubmit={saveEdit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Weekday hours" required>
+              <Input type="number" min={0} step="0.5" value={weekdayHours} onChange={(e) => setWeekdayHours(e.target.value)} />
+            </Field>
+            <Field label="Weekend hours" required>
+              <Input type="number" min={0} step="0.5" value={weekendHours} onChange={(e) => setWeekendHours(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Day type" required>
+            <Select value={dayType} onChange={(e) => setDayType(e.target.value as "normal" | "govt" | "eid")}>
+              {DAY_TYPES.map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label} ({d.multiplier}×)
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="rounded-xl border border-border bg-surface-muted p-4">
+            <BreakdownRow label="Rate / hour" sub="from the current open salary" value={<Money value={preview.ratePerHour} />} />
+            <BreakdownRow
+              label="Total hours"
+              sub={`${preview.multiplier}× multiplier`}
+              value={<span className="tabular-nums">{formatNumber(preview.totalHours)}</span>}
+            />
+            <BreakdownRow label="New overtime pay" value={<Money value={preview.amount} />} emphasis />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+
+      {canManage && confirmDelete ? (
+        <div className="rounded-xl border border-negative/30 bg-negative-soft p-3">
+          <p className="text-sm font-medium text-negative">Delete this overtime entry?</p>
+          <p className="mt-0.5 text-xs text-negative/80">
+            Its pay disappears from {formatMonthKey(row.month)}&rsquo;s payroll immediately.
+          </p>
+          <div className="mt-2.5 flex items-center gap-2">
+            <Button size="sm" variant="danger" disabled={busy} onClick={doDelete}>
+              {busy ? "Deleting…" : "Yes, delete"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>
+              Keep it
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {canManage && !editing && !confirmDelete ? (
+        <div className="flex items-center gap-2 border-t border-border pt-4">
+          <Button variant="outline" onClick={() => setEditing(true)}>
+            <Pencil className="h-4 w-4" />
+            Edit hours
+          </Button>
+          <Button variant="ghost" className="text-negative hover:text-negative" onClick={() => setConfirmDelete(true)}>
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
+      ) : null}
+
+      <p className="text-xs text-subtle">
+        Editing recomputes the rate from the employee&rsquo;s current open salary. Employee and month can&rsquo;t be
+        changed — to move an entry, delete it and log it again.
+      </p>
+    </div>
   );
 }
 

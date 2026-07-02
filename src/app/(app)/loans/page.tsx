@@ -29,5 +29,5 @@ export default async function LoansPage() {
   ]);
   const canManage = session?.role === "super_admin" || session?.role === "hr";
 
-  return <LoansClient loans={loans} employees={employees} canManage={canManage} />;
+  return <LoansClient loans={loans} employees={employees.filter((o) => !o.leftOn)} canManage={canManage} />;
 }

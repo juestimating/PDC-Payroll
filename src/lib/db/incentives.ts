@@ -15,6 +15,13 @@ export type { EmployeeOption } from "@/lib/db/adjustments";
 /** Payout outcome persisted on a commission_records row. */
 export type IncentiveStatus = "payable" | "held" | "already_paid";
 
+/** The USD sale basis behind a derived FX commission (from incentive_basis jsonb). */
+export interface IncentiveBasis {
+  saleValueUsd: number;
+  commissionPct: number;
+  fxRate: number;
+}
+
 /** One flattened incentive row for the UI (joins employee + entity). */
 export interface IncentiveRow {
   id: string;
@@ -29,15 +36,23 @@ export interface IncentiveRow {
   /** FX-commission earned on sales this month (saleUSD × % × fx). */
   incentiveAmount: number;
   bonusAmount: number;
-  /** accrued = incentive + bonus (+ any carried prev). Books the full expense. */
+  /** Manual "New Sales" commission cell (PKR, entered directly). */
+  newSales: number;
+  /** Manual "Recurring" commission cell (PKR, entered directly). */
+  recurring: number;
+  /** Manual "Sales Bonus" cell (PKR, KPI-holdable like the bonus). */
+  salesBonus: number;
+  /** accrued = commissions + bonuses (+ any carried prev). Books the full expense. */
   accruedTotal: number;
   /** Cash payable this run. */
   payableAmount: number;
-  /** accrued − payable (held bonus, or full already-paid accrual). */
+  /** accrued − payable (held bonuses, or full already-paid accrual). */
   withheldAmount: number;
   status: IncentiveStatus;
   kpiMet: boolean;
   manualOverridePayFull: boolean;
+  /** USD sale basis when the commission was derived (null for manual-only rows). */
+  incentiveBasis: IncentiveBasis | null;
   bankName: string | null;
   accountNumber: string | null;
 }
@@ -51,7 +66,7 @@ export async function listIncentives(): Promise<IncentiveRow[]> {
   const { data, error } = await supabase
     .from("commission_records")
     .select(
-      "id, employee_id, entity_id, month, prev_incremental, prev_incentive, incentive_amount, bonus_amount, accrued_total, payable_amount, withheld_amount, status, kpi_met, manual_override_pay_full, bank_name, account_number, employees(name, employee_code), entities(name)",
+      "id, employee_id, entity_id, month, prev_incremental, prev_incentive, incentive_amount, bonus_amount, new_sales_amount, recurring_amount, sales_bonus_amount, accrued_total, payable_amount, withheld_amount, status, kpi_met, manual_override_pay_full, incentive_basis, bank_name, account_number, employees(name, employee_code), entities(name)",
     )
     .order("month", { ascending: false });
   if (error) throw error;
@@ -61,6 +76,7 @@ export async function listIncentives(): Promise<IncentiveRow[]> {
       | { name: string; employee_code: string | null }
       | null;
     const entity = (Array.isArray(r.entities) ? r.entities[0] : r.entities) as { name: string } | null;
+    const basis = r.incentive_basis as Partial<IncentiveBasis> | null;
     return {
       id: r.id as string,
       employeeId: r.employee_id as string | null,
@@ -73,12 +89,23 @@ export async function listIncentives(): Promise<IncentiveRow[]> {
       prevIncentive: Number(r.prev_incentive) || 0,
       incentiveAmount: Number(r.incentive_amount) || 0,
       bonusAmount: Number(r.bonus_amount) || 0,
+      newSales: Number(r.new_sales_amount) || 0,
+      recurring: Number(r.recurring_amount) || 0,
+      salesBonus: Number(r.sales_bonus_amount) || 0,
       accruedTotal: Number(r.accrued_total) || 0,
       payableAmount: Number(r.payable_amount) || 0,
       withheldAmount: Number(r.withheld_amount) || 0,
       status: (r.status as IncentiveStatus) ?? "payable",
       kpiMet: r.kpi_met ?? true,
       manualOverridePayFull: r.manual_override_pay_full ?? false,
+      incentiveBasis:
+        basis && (Number(basis.saleValueUsd) || 0) > 0
+          ? {
+              saleValueUsd: Number(basis.saleValueUsd) || 0,
+              commissionPct: Number(basis.commissionPct) || 0,
+              fxRate: Number(basis.fxRate) || 0,
+            }
+          : null,
       bankName: (r.bank_name as string) ?? null,
       accountNumber: (r.account_number as string) ?? null,
     };

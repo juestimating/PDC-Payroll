@@ -128,3 +128,112 @@ export async function applyIncrementAction(input: NewIncrementInput): Promise<Ac
   revalidatePath("/increments");
   return { ok: true };
 }
+
+/**
+ * Undo a wrongly-applied increment — the exact reverse of applyIncrementAction.
+ * Guarded: only the employee's LATEST increment can be reverted, and only while
+ * the open salary_structures row still carries the increment's new_salary (i.e.
+ * nothing else has touched the salary since). Steps: delete the open structure
+ * the increment created, re-open the structure it closed (effective_to back to
+ * null, with best-effort rollback like apply has), then delete the increments
+ * row. RLS restricts writes to super_admin / hr.
+ */
+export async function revertIncrementAction(incrementId: string): Promise<ActionResult> {
+  if (!incrementId) return { ok: false, error: "Missing increment." };
+
+  const supabase = await createSupabaseServerClient();
+
+  // Load the increment being reverted.
+  const { data: inc, error: incErr } = await supabase
+    .from("increments")
+    .select("id, employee_id, date, old_salary, new_salary")
+    .eq("id", incrementId)
+    .maybeSingle();
+  if (incErr) return { ok: false, error: incErr.message };
+  if (!inc) return { ok: false, error: "Increment not found." };
+
+  // Guard 1: only the employee's latest increment can be reverted.
+  const { data: latest, error: latestErr } = await supabase
+    .from("increments")
+    .select("id")
+    .eq("employee_id", inc.employee_id)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestErr) return { ok: false, error: latestErr.message };
+  if (latest?.id !== inc.id) {
+    return { ok: false, error: "Only the latest increment for an employee can be reverted." };
+  }
+
+  // Guard 2: the open salary row must still be the one this increment created.
+  const { data: open, error: openErr } = await supabase
+    .from("salary_structures")
+    .select("id, salary, basic, medical, travel, effective_from")
+    .eq("employee_id", inc.employee_id)
+    .is("effective_to", null)
+    .maybeSingle();
+  if (openErr) return { ok: false, error: openErr.message };
+  if (!open) return { ok: false, error: "This employee has no active salary structure." };
+  const openGross =
+    Number(open.salary) ||
+    (Number(open.basic) || 0) + (Number(open.medical) || 0) + (Number(open.travel) || 0);
+  if (Math.abs(openGross - (Number(inc.new_salary) || 0)) > 0.01) {
+    return { ok: false, error: "The salary has changed since this increment — it can no longer be reverted." };
+  }
+
+  // Find the structure the increment closed: its effective_to matches the day the
+  // new (open) structure took effect.
+  const { data: prevRows, error: prevErr } = await supabase
+    .from("salary_structures")
+    .select("id")
+    .eq("employee_id", inc.employee_id)
+    .eq("effective_to", open.effective_from)
+    .order("effective_from", { ascending: false })
+    .limit(1);
+  if (prevErr) return { ok: false, error: prevErr.message };
+  const prev = prevRows?.[0];
+  if (!prev) return { ok: false, error: "Couldn't find the salary structure this increment replaced." };
+
+  // 1) Delete the structure the increment created (frees the one-open-row slot).
+  const { data: deleted, error: delErr } = await supabase
+    .from("salary_structures")
+    .delete()
+    .eq("id", open.id)
+    .select("id");
+  if (delErr) {
+    if (/row-level security|permission|privilege/i.test(delErr.message)) {
+      return { ok: false, error: "Only HR / Super Admin can revert increments." };
+    }
+    return { ok: false, error: delErr.message };
+  }
+  // RLS filters silently — zero rows touched means the caller may not write here.
+  if (!deleted || deleted.length === 0) return { ok: false, error: "Only HR / Super Admin can revert increments." };
+
+  // 2) Re-open the previous structure.
+  const { error: reopenErr } = await supabase
+    .from("salary_structures")
+    .update({ effective_to: null })
+    .eq("id", prev.id);
+  if (reopenErr) {
+    // Best-effort rollback of the delete so the employee isn't left without an open row.
+    await supabase.from("salary_structures").insert({
+      employee_id: inc.employee_id,
+      salary: open.salary,
+      basic: open.basic,
+      medical: open.medical,
+      travel: open.travel,
+      effective_from: open.effective_from,
+    });
+    return { ok: false, error: `Revert failed to re-open the previous salary: ${reopenErr.message}` };
+  }
+
+  // 3) Remove the increment audit row.
+  const { error: rmErr } = await supabase.from("increments").delete().eq("id", inc.id);
+  if (rmErr) {
+    return { ok: false, error: `Salary reverted but the increment record could not be removed: ${rmErr.message}` };
+  }
+
+  revalidatePath("/increments");
+  return { ok: true };
+}

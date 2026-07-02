@@ -1,6 +1,6 @@
 "use client";
 
-import { Wallet } from "lucide-react";
+import { UserMinus, Wallet } from "lucide-react";
 import type { PayrollRow } from "@/lib/db/payroll";
 import { formatMonthKeyLong } from "@/lib/format";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { BreakdownRow } from "@/components/ui/sheet";
  */
 export function PayslipView({ row, month }: { row: PayrollRow; month: string }) {
   const prorated = row.workedDays < 30;
+  const leftThisMonth = !!row.lastWorkingDay && row.lastWorkingDay.slice(0, 7) === month;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -54,6 +55,14 @@ export function PayslipView({ row, month }: { row: PayrollRow; month: string }) 
           </div>
         </div>
       </div>
+
+      {/* Final-month notice for leavers */}
+      {leftThisMonth ? (
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
+          <UserMinus className="h-4 w-4 shrink-0" />
+          Left {row.lastWorkingDay} — final prorated month.
+        </div>
+      ) : null}
 
       {/* Identity strip */}
       <Card className="mt-4">

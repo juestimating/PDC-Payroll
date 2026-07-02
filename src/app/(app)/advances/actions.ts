@@ -61,3 +61,56 @@ export async function createAdvanceAction(input: NewAdvanceInput): Promise<Actio
   revalidatePath("/advances");
   return { ok: true };
 }
+
+/**
+ * Correct a wrongly-entered advance amount. Employee, company and month are
+ * immutable — to move an advance to another month, delete it and re-log it.
+ * (The advances table stores no note.) RLS enforces super_admin / hr.
+ */
+export async function updateAdvanceAction(id: string, input: { amount: number }): Promise<ActionResult> {
+  // --- validate ---
+  if (!id) return { ok: false, error: "Missing advance." };
+  if (!input.amount || input.amount <= 0) {
+    return { ok: false, error: "Advance amount must be greater than 0." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("advances")
+    .update({ amount: Number(Number(input.amount).toFixed(2)) })
+    .eq("id", id)
+    .select("id");
+
+  if (error) {
+    if (/row-level security|permission|privilege/i.test(error.message)) {
+      return { ok: false, error: "Only HR / Super Admin can edit advances." };
+    }
+    return { ok: false, error: error.message };
+  }
+  // RLS filters silently — zero rows touched means the caller may not write here.
+  if (!data || data.length === 0) return { ok: false, error: "Only HR / Super Admin can edit advances." };
+
+  revalidatePath("/advances");
+  return { ok: true };
+}
+
+/** Remove an advance entirely (e.g. logged against the wrong month or person). */
+export async function deleteAdvanceAction(id: string): Promise<ActionResult> {
+  if (!id) return { ok: false, error: "Missing advance." };
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase.from("advances").delete().eq("id", id).select("id");
+
+  if (error) {
+    if (/row-level security|permission|privilege/i.test(error.message)) {
+      return { ok: false, error: "Only HR / Super Admin can delete advances." };
+    }
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) return { ok: false, error: "Only HR / Super Admin can delete advances." };
+
+  revalidatePath("/advances");
+  return { ok: true };
+}

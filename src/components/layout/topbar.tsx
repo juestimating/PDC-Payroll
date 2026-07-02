@@ -1,19 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { ChevronDown, LogOut, Menu, Search } from "lucide-react";
 import { useAppState } from "@/components/providers/app-state";
-import { useWorkspace } from "@/components/providers/workspace";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { CURRENT_MONTH, ROLES, ROLE_ORDER } from "@/lib/data";
+import { ROLES, ROLE_ORDER } from "@/lib/data";
 import type { Role } from "@/lib/data";
-import { formatMonthKey } from "@/lib/format";
 import { Avatar } from "@/components/ui/avatar";
-import { PeriodControl } from "@/components/payroll/period-control";
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
-  const { month, setMonth, role, setRole, user, authed } = useAppState();
-  const { months, openMonth, isCreated, ready } = useWorkspace();
+  const { role, setRole, user, authed } = useAppState();
 
   async function signOut() {
     try {
@@ -23,18 +18,6 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
     }
     window.location.href = "/login";
   }
-
-  // Once hydrated, default the view to the open month if the user hasn't moved off
-  // the seed default — so a month opened in a previous session is shown on load.
-  const synced = useRef(false);
-  useEffect(() => {
-    if (ready && !synced.current) {
-      synced.current = true;
-      if (month === CURRENT_MONTH && openMonth !== CURRENT_MONTH) setMonth(openMonth);
-    }
-  }, [ready, openMonth, month, setMonth]);
-
-  const canManagePeriod = role === "super_admin" || role === "admin" || role === "hr";
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-surface/85 px-4 backdrop-blur sm:px-6 lg:px-8">
@@ -56,31 +39,6 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
-        {canManagePeriod ? (
-          <div className="hidden sm:block">
-            <PeriodControl compact />
-          </div>
-        ) : null}
-
-        <label className="hidden items-center gap-2 sm:flex">
-          <span className="text-xs text-subtle">Month</span>
-          <div className="relative">
-            <select
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="h-9 appearance-none rounded-lg border border-border bg-surface pl-3 pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-            >
-              {[...months].reverse().map((m) => (
-                <option key={m} value={m}>
-                  {formatMonthKey(m)}
-                  {m === openMonth ? " · open" : isCreated(m) ? " · new" : ""}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
-          </div>
-        </label>
-
         {!authed ? (
           <div className="relative" title="Preview the UI as a different role (demo)">
             <select

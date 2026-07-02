@@ -1,5 +1,6 @@
 import { Wallet } from "lucide-react";
 import { computePayrollForMonth } from "@/lib/db/payroll";
+import { currentMonthKey } from "@/lib/format";
 import { getSessionProfile, hasSupabaseEnv } from "@/lib/supabase/server";
 import { PayslipView } from "@/components/payroll/payslip-view";
 import { EmptyState } from "@/components/ui/states";
@@ -7,9 +8,8 @@ import { PageHeader } from "@/components/layout/page-header";
 
 export const dynamic = "force-dynamic";
 
-const PAYROLL_MONTH = "2026-05";
-
 export default async function MyPayslipPage() {
+  const month = currentMonthKey();
   if (!hasSupabaseEnv()) {
     return (
       <>
@@ -38,7 +38,7 @@ export default async function MyPayslipPage() {
     );
   }
 
-  const rows = await computePayrollForMonth(PAYROLL_MONTH);
+  const rows = await computePayrollForMonth(month);
   const row = rows.find((r) => r.employeeId === session.employeeId);
 
   if (!row) {
@@ -57,7 +57,7 @@ export default async function MyPayslipPage() {
   return (
     <>
       <PageHeader title="My payslip" description="Your monthly pay, fully itemized." />
-      <PayslipView row={row} month={PAYROLL_MONTH} />
+      <PayslipView row={row} month={month} />
     </>
   );
 }
